@@ -67,3 +67,6 @@ This build is a focused Pilot MVP designed for initial real-world testing. The f
 2. **Single User per Business**: Each business is owned by one authenticated user (`owner_id = auth.uid()`). Multi-user/role management is not yet included.
 3. **Online Only**: Requires an active network connection to sync transactions with Supabase. No offline local caching or queueing.
 4. **Manual Receipts**: Digital receipt view generated on-screen after checkout (no hardware ESC/POS bluetooth printer integration yet).
+
+# ShopBase
+A small application for the small businesses owners to manage their business from their phones with small monthly fees
