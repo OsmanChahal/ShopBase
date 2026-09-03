@@ -110,6 +110,39 @@ class CustomerService {
     }
   }
 
+  /// Fetch sales for a customer with an optional date range filter.
+  /// If [from] and [to] are both null, returns ALL sales (no limit).
+  /// Always sorted most recent first.
+  Future<List<Sale>> getSalesForCustomerFiltered(
+    String customerId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    try {
+      var query = _client
+          .from('sales')
+          .select()
+          .eq('customer_id', customerId);
+
+      if (from != null) {
+        query = query.gte('created_at', from.toUtc().toIso8601String());
+      }
+      if (to != null) {
+        // Inclusive end: go to end of the day
+        final endOfDay = DateTime.utc(to.year, to.month, to.day, 23, 59, 59);
+        query = query.lte('created_at', endOfDay.toIso8601String());
+      }
+
+      final response = await query.order('created_at', ascending: false);
+
+      return (response as List)
+          .map((json) => Sale.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to load customer sales. Please try again.');
+    }
+  }
+
   /// Count of sales for a customer this calendar month.
   Future<int> getCustomerSalesThisMonth(String customerId) async {
     try {

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cart_item.dart';
 import '../models/customer.dart';
+import '../models/sale.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/customer_provider.dart';
@@ -30,6 +31,7 @@ class _CartPanelState extends ConsumerState<CartPanel> {
 
     final paymentType = ref.read(paymentTypeProvider);
     final customerId = ref.read(selectedCustomerIdProvider);
+    final customerName = ref.read(selectedCustomerNameProvider);
 
     // Validate customer for credit sales
     if (paymentType == 'credit' && (customerId == null || customerId.isEmpty)) {
@@ -55,19 +57,34 @@ class _CartPanelState extends ConsumerState<CartPanel> {
 
       // Clear cart on success
       ref.read(cartProvider.notifier).clear();
-      // Reset payment type and customer
       ref.read(paymentTypeProvider.notifier).state = 'cash';
       ref.read(selectedCustomerIdProvider.notifier).state = null;
       ref.read(selectedCustomerNameProvider.notifier).state = null;
 
-      if (mounted) {
-        // Navigate to receipt, replacing cart panel
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => ReceiptScreen(sale: sale, isFromCheckout: true),
-          ),
-        );
+      if (!mounted) return;
+
+      // Resolve customer phone for the share button on the receipt screen.
+      // Only look it up if a customer was actually connected.
+      String? customerPhone;
+      if (customerId != null && customerId.isNotEmpty) {
+        try {
+          final customers = ref.read(customerListProvider).valueOrNull ?? [];
+          final match = customers.where((c) => c.id == customerId).firstOrNull;
+          customerPhone =
+              (match?.phone != null && match!.phone!.isNotEmpty)
+                  ? match.phone
+                  : null;
+        } catch (_) {
+          customerPhone = null;
+        }
       }
+
+      _goToReceipt(
+        sale: sale,
+        businessName: business.name,
+        customerName: customerName,
+        customerPhone: customerPhone,
+      );
     } catch (e) {
       if (mounted) {
         setState(() => _isCheckingOut = false);
@@ -80,6 +97,26 @@ class _CartPanelState extends ConsumerState<CartPanel> {
         );
       }
     }
+  }
+
+  void _goToReceipt({
+    required Sale sale,
+    required String businessName,
+    String? customerName,
+    String? customerPhone,
+  }) {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ReceiptScreen(
+          sale: sale,
+          isFromCheckout: true,
+          businessName: businessName,
+          customerName: customerName,
+          customerPhone: customerPhone,
+        ),
+      ),
+    );
   }
 
   void _showPriceOverrideDialog(CartItem item) {

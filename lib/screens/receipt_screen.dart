@@ -1,30 +1,137 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/sale.dart';
 import '../providers/auth_provider.dart';
 
-class ReceiptScreen extends ConsumerWidget {
+class ReceiptScreen extends ConsumerStatefulWidget {
   final Sale sale;
   final bool isFromCheckout; // true = just completed, show "New Sale" button
+  /// Business name — forwarded from checkout for the WhatsApp message header.
+  final String? businessName;
+  /// Only set from checkout. Controls share button visibility and message.
+  final String? customerName;
+  final String? customerPhone;
 
   const ReceiptScreen({
     super.key,
     required this.sale,
     this.isFromCheckout = false,
+    this.businessName,
+    this.customerName,
+    this.customerPhone,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final business = ref.watch(currentBusinessProvider);
+  ConsumerState<ReceiptScreen> createState() => _ReceiptScreenState();
+}
+
+class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
+  bool _isOpening = false;
+
+  /// Show the WhatsApp share button only when:
+  /// - This is a fresh checkout (not viewing a historical receipt)
+  /// - A customer was connected
+  /// - That customer has a phone number on file
+  bool get _showShareButton =>
+      widget.isFromCheckout &&
+      widget.customerPhone != null &&
+      widget.customerPhone!.isNotEmpty;
+
+  /// Strips all non-digit characters — produces the digits-only international
+  /// number required by wa.me (e.g. "96170123456").
+  String get _cleanedPhone =>
+      (widget.customerPhone ?? '').replaceAll(RegExp(r'\D'), '');
+
+  /// Builds the plain-text WhatsApp receipt message from the sale data.
+  String _buildReceiptMessage() {
+    final sale = widget.sale;
     final items = sale.items ?? [];
     final localTime = sale.createdAt.toLocal();
+    final business = ref.read(currentBusinessProvider);
+    final businessName =
+        widget.businessName ?? business?.name ?? 'Our Store';
+
+    final dateStr = _formatDate(localTime);
+    final timeStr = _formatTime(localTime);
+    final paymentLabel =
+        sale.paymentType == 'cash' ? 'Cash' : 'Card';
+
+    final buffer = StringBuffer();
+    buffer.writeln('🧾 *Receipt from $businessName*');
+    buffer.writeln();
+    buffer.writeln('📅 $dateStr - $timeStr');
+    buffer.writeln();
+
+    for (final item in items) {
+      final unitPrice = item.unitPriceUsd.toStringAsFixed(2);
+      final lineTotal = item.subtotalUsd.toStringAsFixed(2);
+      buffer.writeln(
+          '${item.quantity} x ${item.productNameSnapshot}  –  \$$unitPrice  =  \$$lineTotal');
+    }
+
+    buffer.writeln();
+    buffer.writeln(
+        '💵 *Total: \$${sale.totalUsd.toStringAsFixed(2)}*  (LBP ${_formatLbp(sale.totalLbp)})');
+    buffer.writeln('💳 Payment: $paymentLabel');
+    buffer.writeln();
+    buffer.write('Thank you for your purchase! 🙏');
+
+    return buffer.toString();
+  }
+
+  Future<void> _openWhatsApp() async {
+    final phone = _cleanedPhone;
+    if (phone.isEmpty) return;
+
+    setState(() => _isOpening = true);
+
+    try {
+      final message = _buildReceiptMessage();
+      final encoded = Uri.encodeComponent(message);
+      final uri = Uri.parse('https://wa.me/$phone?text=$encoded');
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Could not open WhatsApp — is it installed?'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Could not open WhatsApp — is it installed?'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isOpening = false);
+    }
+    // After WhatsApp opens (or fails), owner stays on this screen.
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final business = ref.watch(currentBusinessProvider);
+    final items = widget.sale.items ?? [];
+    final localTime = widget.sale.createdAt.toLocal();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isFromCheckout ? 'Sale Complete' : 'Receipt'),
-        automaticallyImplyLeading: !isFromCheckout,
-        leading: isFromCheckout
+        title: Text(widget.isFromCheckout ? 'Sale Complete' : 'Receipt'),
+        automaticallyImplyLeading: !widget.isFromCheckout,
+        leading: widget.isFromCheckout
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.of(context).pop(),
@@ -36,11 +143,11 @@ class ReceiptScreen extends ConsumerWidget {
         child: Column(
           children: [
             // Success icon (only on fresh checkout)
-            if (isFromCheckout) ...[
+            if (widget.isFromCheckout) ...[
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF0FDF4),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -68,7 +175,8 @@ class ReceiptScreen extends ConsumerWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: theme.colorScheme.outlineVariant
+                      .withValues(alpha: 0.3),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -92,7 +200,8 @@ class ReceiptScreen extends ConsumerWidget {
                   Text(
                     'SALE RECEIPT',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.4),
                       letterSpacing: 2,
                     ),
                   ),
@@ -102,12 +211,12 @@ class ReceiptScreen extends ConsumerWidget {
                   Text(
                     '${_formatDate(localTime)} at ${_formatTime(localTime)}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  // Dashed divider
                   _DashedDivider(color: theme.colorScheme.outlineVariant),
                   const SizedBox(height: 12),
 
@@ -159,7 +268,8 @@ class ReceiptScreen extends ConsumerWidget {
 
                   // Line items
                   ...items.map((item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
                             Expanded(
@@ -192,7 +302,8 @@ class ReceiptScreen extends ConsumerWidget {
                               child: Text(
                                 '\$${item.subtotalUsd.toStringAsFixed(2)}',
                                 textAlign: TextAlign.right,
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -214,7 +325,7 @@ class ReceiptScreen extends ConsumerWidget {
                             fontWeight: FontWeight.w700,
                           )),
                       Text(
-                        '\$${sale.totalUsd.toStringAsFixed(2)}',
+                        '\$${widget.sale.totalUsd.toStringAsFixed(2)}',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: theme.colorScheme.primary,
@@ -232,7 +343,7 @@ class ReceiptScreen extends ConsumerWidget {
                                 .withValues(alpha: 0.6),
                           )),
                       Text(
-                        'LBP ${_formatLbpFull(sale.totalLbp)}',
+                        'LBP ${_formatLbp(widget.sale.totalLbp)}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurface
@@ -253,7 +364,7 @@ class ReceiptScreen extends ConsumerWidget {
                       Row(
                         children: [
                           Icon(
-                            sale.paymentType == 'cash'
+                            widget.sale.paymentType == 'cash'
                                 ? Icons.payments_outlined
                                 : Icons.credit_card,
                             size: 18,
@@ -262,7 +373,9 @@ class ReceiptScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            sale.paymentType == 'cash' ? 'Cash' : 'Card',
+                            widget.sale.paymentType == 'cash'
+                                ? 'Cash'
+                                : 'Card',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
@@ -270,7 +383,7 @@ class ReceiptScreen extends ConsumerWidget {
                         ],
                       ),
                       Text(
-                        'Rate: ${sale.exchangeRateUsed.toStringAsFixed(0)} LBP/USD',
+                        'Rate: ${widget.sale.exchangeRateUsed.toStringAsFixed(0)} LBP/USD',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.4),
@@ -282,19 +395,63 @@ class ReceiptScreen extends ConsumerWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // New Sale button (only from checkout)
-            if (isFromCheckout)
+            // ── WhatsApp Share button ──────────────────────────────────
+            // Shown only when: fresh checkout + customer connected + has phone
+            if (_showShareButton)
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: _isOpening ? null : _openWhatsApp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        const Color(0xFF25D366).withValues(alpha: 0.6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: _isOpening
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : SvgPicture.asset(
+                          'asset/whatsapp-color-svgrepo-com.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: const ColorFilter.mode(
+                              Colors.white, BlendMode.srcIn),
+                        ),
+                  label: Text(
+                    _isOpening ? 'Opening WhatsApp…' : 'Share via WhatsApp',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+
+            if (_showShareButton) const SizedBox(height: 8),
+
+            // New Sale button (only from checkout)
+            if (widget.isFromCheckout)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.add_shopping_cart),
-                  label: const Text('New Sale', style: TextStyle(fontSize: 16)),
+                  label: const Text('New Sale',
+                      style: TextStyle(fontSize: 16)),
                 ),
               ),
           ],
@@ -303,29 +460,30 @@ class ReceiptScreen extends ConsumerWidget {
     );
   }
 
+  // ── Formatters ────────────────────────────────────────────────────────────
+
   String _formatDate(DateTime dt) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 
   String _formatTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final hour =
+        dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final amPm = dt.hour >= 12 ? 'PM' : 'AM';
     final min = dt.minute.toString().padLeft(2, '0');
     return '$hour:$min $amPm';
   }
 
-  String _formatLbpFull(double amount) {
+  String _formatLbp(double amount) {
     final str = amount.toStringAsFixed(0);
     final buffer = StringBuffer();
     int count = 0;
     for (int i = str.length - 1; i >= 0; i--) {
-      if (count > 0 && count % 3 == 0) {
-        buffer.write(',');
-      }
+      if (count > 0 && count % 3 == 0) buffer.write(',');
       buffer.write(str[i]);
       count++;
     }
@@ -342,8 +500,9 @@ class _DashedDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final dashWidth = 5.0;
-        final dashCount = (constraints.maxWidth / (dashWidth * 2)).floor();
+        const dashWidth = 5.0;
+        final dashCount =
+            (constraints.maxWidth / (dashWidth * 2)).floor();
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(dashCount, (_) {

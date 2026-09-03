@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/customer.dart';
 import '../models/sale.dart';
 import '../providers/auth_provider.dart';
@@ -11,13 +13,13 @@ import '../widgets/metric_card.dart';
 import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
 
-/// Provider to fetch a single customer's data.
+// ── Providers ────────────────────────────────────────────────────────────────
+
 final _customerDetailProvider =
     FutureProvider.family<Customer, String>((ref, customerId) async {
   return ref.watch(customerServiceProvider).getCustomerById(customerId);
 });
 
-/// Provider to fetch monthly sales count.
 final _customerMonthlySalesProvider =
     FutureProvider.family<int, String>((ref, customerId) async {
   return ref
@@ -25,13 +27,11 @@ final _customerMonthlySalesProvider =
       .getCustomerSalesThisMonth(customerId);
 });
 
-/// Provider to fetch total sales count.
 final _customerTotalSalesProvider =
     FutureProvider.family<int, String>((ref, customerId) async {
   return ref.watch(customerServiceProvider).getCustomerTotalSales(customerId);
 });
 
-/// Provider to fetch favorite product.
 final _customerFavoriteProductProvider =
     FutureProvider.family<FavoriteProduct?, String>((ref, customerId) async {
   return ref
@@ -39,20 +39,88 @@ final _customerFavoriteProductProvider =
       .getCustomerFavoriteProduct(customerId);
 });
 
-/// Provider to fetch sales for a customer.
-final _customerSalesProvider =
-    FutureProvider.family<List<Sale>, String>((ref, customerId) async {
-  return ref.watch(customerServiceProvider).getSalesForCustomer(customerId);
+/// History period enum — includes "All Time" as default.
+enum HistoryPeriod { allTime, thisWeek, thisMonth, lastMonth, custom }
+
+/// Record used as provider family key: (customerId, fromIso?, toIso?)
+typedef _SalesFilterKey = ({String id, String? from, String? to});
+
+final _customerSalesFilteredProvider =
+    FutureProvider.family<List<Sale>, _SalesFilterKey>((ref, key) async {
+  DateTime? from;
+  DateTime? to;
+  if (key.from != null) from = DateTime.parse(key.from!);
+  if (key.to != null) to = DateTime.parse(key.to!);
+
+  return ref.watch(customerServiceProvider).getSalesForCustomerFiltered(
+        key.id,
+        from: from,
+        to: to,
+      );
 });
 
-class CustomerDetailScreen extends ConsumerWidget {
+// ── Main Screen ───────────────────────────────────────────────────────────────
+
+class CustomerDetailScreen extends ConsumerStatefulWidget {
   final String customerId;
 
   const CustomerDetailScreen({super.key, required this.customerId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final customerAsync = ref.watch(_customerDetailProvider(customerId));
+  ConsumerState<CustomerDetailScreen> createState() =>
+      _CustomerDetailScreenState();
+}
+
+class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
+  HistoryPeriod _historyPeriod = HistoryPeriod.allTime;
+  DateTimeRange? _customRange;
+
+  _SalesFilterKey get _filterKey {
+    final range = _dateRange;
+    return (
+      id: widget.customerId,
+      from: range?.start.toIso8601String(),
+      to: range?.end.toIso8601String(),
+    );
+  }
+
+  DateTimeRange? get _dateRange {
+    final now = DateTime.now();
+    switch (_historyPeriod) {
+      case HistoryPeriod.allTime:
+        return null;
+      case HistoryPeriod.thisWeek:
+        final weekday = now.weekday; // 1 = Monday
+        final monday = now.subtract(Duration(days: weekday - 1));
+        return DateTimeRange(
+          start: DateTime(monday.year, monday.month, monday.day),
+          end: now,
+        );
+      case HistoryPeriod.thisMonth:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month, 1),
+          end: now,
+        );
+      case HistoryPeriod.lastMonth:
+        final firstOfLastMonth = DateTime(now.year, now.month - 1, 1);
+        final lastOfLastMonth = DateTime(now.year, now.month, 0);
+        return DateTimeRange(start: firstOfLastMonth, end: lastOfLastMonth);
+      case HistoryPeriod.custom:
+        return _customRange;
+    }
+  }
+
+  void _invalidateAll() {
+    ref.invalidate(_customerDetailProvider(widget.customerId));
+    ref.invalidate(_customerMonthlySalesProvider(widget.customerId));
+    ref.invalidate(_customerTotalSalesProvider(widget.customerId));
+    ref.invalidate(_customerFavoriteProductProvider(widget.customerId));
+    ref.invalidate(_customerSalesFilteredProvider(_filterKey));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final customerAsync = ref.watch(_customerDetailProvider(widget.customerId));
     final business = ref.watch(currentBusinessProvider);
     final rate = business?.currencyRate ?? 0;
 
@@ -63,13 +131,7 @@ class CustomerDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
-            onPressed: () {
-              ref.invalidate(_customerDetailProvider(customerId));
-              ref.invalidate(_customerMonthlySalesProvider(customerId));
-              ref.invalidate(_customerTotalSalesProvider(customerId));
-              ref.invalidate(_customerFavoriteProductProvider(customerId));
-              ref.invalidate(_customerSalesProvider(customerId));
-            },
+            onPressed: _invalidateAll,
           ),
         ],
       ),
@@ -91,7 +153,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () =>
-                      ref.invalidate(_customerDetailProvider(customerId)),
+                      ref.invalidate(_customerDetailProvider(widget.customerId)),
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Retry'),
                 ),
@@ -101,23 +163,65 @@ class CustomerDetailScreen extends ConsumerWidget {
         ),
         data: (customer) => _CustomerDetailBody(
           customer: customer,
-          customerId: customerId,
+          customerId: widget.customerId,
           currencyRate: rate,
+          historyPeriod: _historyPeriod,
+          customRange: _customRange,
+          filterKey: _filterKey,
+          onPeriodChanged: (period) async {
+            if (period == HistoryPeriod.custom) {
+              final picked = await showDateRangePicker(
+                context: context,
+                initialDateRange: _customRange ??
+                    DateTimeRange(
+                      start:
+                          DateTime.now().subtract(const Duration(days: 30)),
+                      end: DateTime.now(),
+                    ),
+                firstDate: DateTime(2024),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) {
+                setState(() {
+                  _customRange = picked;
+                  _historyPeriod = HistoryPeriod.custom;
+                });
+              }
+            } else {
+              setState(() => _historyPeriod = period);
+            }
+          },
+          onCustomerEdited: () {
+            ref.invalidate(_customerDetailProvider(widget.customerId));
+            ref.invalidate(customerListProvider);
+          },
         ),
       ),
     );
   }
 }
 
+// ── Body ─────────────────────────────────────────────────────────────────────
+
 class _CustomerDetailBody extends ConsumerWidget {
   final Customer customer;
   final String customerId;
   final double currencyRate;
+  final HistoryPeriod historyPeriod;
+  final DateTimeRange? customRange;
+  final _SalesFilterKey filterKey;
+  final void Function(HistoryPeriod) onPeriodChanged;
+  final VoidCallback onCustomerEdited;
 
   const _CustomerDetailBody({
     required this.customer,
     required this.customerId,
     required this.currencyRate,
+    required this.historyPeriod,
+    required this.customRange,
+    required this.filterKey,
+    required this.onPeriodChanged,
+    required this.onCustomerEdited,
   });
 
   @override
@@ -128,8 +232,12 @@ class _CustomerDetailBody extends ConsumerWidget {
     final totalCountAsync = ref.watch(_customerTotalSalesProvider(customerId));
     final favoriteProductAsync =
         ref.watch(_customerFavoriteProductProvider(customerId));
-    final salesAsync = ref.watch(_customerSalesProvider(customerId));
-    final initial = customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?';
+    final salesAsync = ref.watch(_customerSalesFilteredProvider(filterKey));
+    final initial =
+        customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?';
+
+    final hasPhone =
+        customer.phone != null && customer.phone!.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -156,7 +264,8 @@ class _CustomerDetailBody extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 36,
-                  backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.1),
+                  backgroundColor:
+                      AppColors.primaryPurple.withValues(alpha: 0.1),
                   child: Text(
                     initial,
                     style: const TextStyle(
@@ -175,7 +284,7 @@ class _CustomerDetailBody extends ConsumerWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                if (customer.phone != null && customer.phone!.isNotEmpty) ...[
+                if (hasPhone) ...[
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -195,23 +304,33 @@ class _CustomerDetailBody extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final changed = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => CustomerFormScreen(customer: customer),
-                        ),
-                      );
-                      if (changed == true) {
-                        ref.invalidate(_customerDetailProvider(customerId));
-                        ref.invalidate(customerListProvider);
-                      }
-                    },
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Edit Profile'),
-                  ),
+
+                // Action buttons row
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final changed =
+                              await Navigator.of(context).push<bool>(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  CustomerFormScreen(customer: customer),
+                            ),
+                          );
+                          if (changed == true) onCustomerEdited();
+                        },
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Edit Profile'),
+                      ),
+                    ),
+                    if (hasPhone) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _WhatsAppButton(phone: customer.phone!),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -283,7 +402,8 @@ class _CustomerDetailBody extends ConsumerWidget {
                   child: CircularProgressIndicator(),
                 ),
               ),
-              error: (_, _) => const Text('Could not load favorite product'),
+              error: (_, _) =>
+                  const Text('Could not load favorite product'),
               data: (favorite) {
                 if (favorite == null) {
                   return const Row(
@@ -346,7 +466,7 @@ class _CustomerDetailBody extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
-          // 4. Order History
+          // 4. Order History header + period filter
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
@@ -360,6 +480,15 @@ class _CustomerDetailBody extends ConsumerWidget {
             ),
           ),
 
+          // Period filter chips
+          _HistoryPeriodFilter(
+            selected: historyPeriod,
+            customRange: customRange,
+            onChanged: onPeriodChanged,
+          ),
+          const SizedBox(height: 12),
+
+          // History list
           salesAsync.when(
             loading: () => const Center(
               child: Padding(
@@ -372,6 +501,7 @@ class _CustomerDetailBody extends ConsumerWidget {
             ),
             data: (sales) {
               if (sales.isEmpty) {
+                final isFiltered = historyPeriod != HistoryPeriod.allTime;
                 return Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -379,15 +509,18 @@ class _CustomerDetailBody extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppColors.borderLight),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.receipt_long_outlined,
+                        const Icon(Icons.receipt_long_outlined,
                             size: 40, color: AppColors.inactiveGray),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
-                          'No past orders found',
-                          style: TextStyle(color: AppColors.textSecondary),
+                          isFiltered
+                              ? 'No orders in this period'
+                              : 'No past orders found',
+                          style: const TextStyle(
+                              color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -411,13 +544,14 @@ class _CustomerDetailBody extends ConsumerWidget {
                       border: Border.all(color: AppColors.borderLight),
                     ),
                     child: ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       leading: Container(
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: AppColors.primaryPurple.withValues(alpha: 0.08),
+                          color: AppColors.primaryPurple
+                              .withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
@@ -452,7 +586,9 @@ class _CustomerDetailBody extends ConsumerWidget {
                       ),
                       subtitle: Text(
                         '${_formatTime(local)} · ${sale.paymentType == 'cash' ? 'Cash' : 'Card'}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -482,9 +618,10 @@ class _CustomerDetailBody extends ConsumerWidget {
                           final items = await ref
                               .read(saleServiceProvider)
                               .getSaleItems(sale.id);
-                          final saleWithItems = sale.copyWith(items: items);
+                          final saleWithItems =
+                              sale.copyWith(items: items);
                           if (context.mounted) {
-                            Navigator.of(context).pop(); // pop loader
+                            Navigator.of(context).pop();
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => ReceiptScreen(
@@ -500,7 +637,9 @@ class _CustomerDetailBody extends ConsumerWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  e.toString().replaceAll('Exception: ', ''),
+                                  e
+                                      .toString()
+                                      .replaceAll('Exception: ', ''),
                                 ),
                               ),
                             );
@@ -542,5 +681,145 @@ class _CustomerDetailBody extends ConsumerWidget {
       count++;
     }
     return buffer.toString().split('').reversed.join();
+  }
+}
+
+// ── WhatsApp Button ───────────────────────────────────────────────────────────
+
+class _WhatsAppButton extends StatelessWidget {
+  final String phone;
+
+  const _WhatsAppButton({required this.phone});
+
+  /// Strips all non-digit characters for wa.me (international format, no +/spaces).
+  String get _waPhone => phone.replaceAll(RegExp(r'\D'), '');
+
+  Future<void> _openWhatsApp(BuildContext context) async {
+    final digits = _waPhone;
+    if (digits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No valid phone number on file')),
+      );
+      return;
+    }
+
+    final uri = Uri.parse('https://wa.me/$digits');
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Could not open WhatsApp — is it installed?'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Could not open WhatsApp — is it installed?'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: () => _openWhatsApp(context),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF25D366), // WhatsApp green
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      ),
+      icon: SvgPicture.asset(
+        'asset/whatsapp-color-svgrepo-com.svg',
+        width: 18,
+        height: 18,
+        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      ),
+      label: const Text(
+        'WhatsApp',
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+// ── History Period Filter ─────────────────────────────────────────────────────
+
+class _HistoryPeriodFilter extends StatelessWidget {
+  final HistoryPeriod selected;
+  final DateTimeRange? customRange;
+  final void Function(HistoryPeriod) onChanged;
+
+  static const _labels = {
+    HistoryPeriod.allTime: 'All Time',
+    HistoryPeriod.thisWeek: 'This Week',
+    HistoryPeriod.thisMonth: 'This Month',
+    HistoryPeriod.lastMonth: 'Last Month',
+    HistoryPeriod.custom: 'Custom',
+  };
+
+  const _HistoryPeriodFilter({
+    required this.selected,
+    required this.customRange,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: HistoryPeriod.values.map((period) {
+          final isActive = selected == period;
+          String label = _labels[period]!;
+          // Show date range for custom when selected
+          if (period == HistoryPeriod.custom &&
+              isActive &&
+              customRange != null) {
+            final s = customRange!.start;
+            final e = customRange!.end;
+            label =
+                '${s.day}/${s.month} – ${e.day}/${e.month}';
+          }
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(label),
+              selected: isActive,
+              onSelected: (_) => onChanged(period),
+              selectedColor: AppColors.primaryPurple,
+              backgroundColor: AppColors.cardSurface,
+              labelStyle: TextStyle(
+                color: isActive ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+                side: BorderSide(
+                  color: isActive
+                      ? AppColors.primaryPurple
+                      : AppColors.borderLight,
+                ),
+              ),
+              showCheckmark: false,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 }

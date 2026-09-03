@@ -30,8 +30,8 @@ Supabase URL and Anon/Publishable key are configured in [`lib/main.dart`](file:/
 
 ```dart
 await Supabase.initialize(
-  url: 'https://efxgqkiyorfcmosvklob.supabase.co',
-  publishableKey: 'sb_publishable_Tr9g1uq3jeP1DqHjwny3Mw_dN167AUO',
+  url: '****************************************',
+  publishableKey: '**********************************',
 );
 ```
 
