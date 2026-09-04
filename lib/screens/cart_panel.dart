@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cart_item.dart';
 import '../models/customer.dart';
 import '../models/sale.dart';
+import '../models/tag.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/customer_provider.dart';
 import '../providers/sale_provider.dart';
+import '../providers/tag_provider.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/tag_picker_sheet.dart';
 import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
 
@@ -725,7 +728,7 @@ class _TotalRow extends StatelessWidget {
   }
 }
 
-/// Connect with Customer section for POS sales.
+/// Connect with Customer section for POS sales — extended with inline tag management.
 class _CustomerPickerSection extends ConsumerWidget {
   final WidgetRef ref;
   final ThemeData theme;
@@ -767,7 +770,7 @@ class _CustomerPickerSection extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          if (selectedId != null && selectedName != null)
+          if (selectedId != null && selectedName != null) ...[
             Row(
               children: [
                 Expanded(
@@ -802,8 +805,13 @@ class _CustomerPickerSection extends ConsumerWidget {
                   child: const Text('Change'),
                 ),
               ],
-            )
-          else
+            ),
+            // ── Inline tag management for the selected customer ──
+            _InlineCustomerTags(
+              customerId: selectedId,
+              theme: theme,
+            ),
+          ] else
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1002,6 +1010,135 @@ class _CustomerSearchSheetState
                   },
                 ),
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Inline Customer Tags (checkout flow) ──────────────────────────────────────
+
+class _InlineCustomerTags extends ConsumerWidget {
+  final String customerId;
+  final ThemeData theme;
+
+  const _InlineCustomerTags({
+    required this.customerId,
+    required this.theme,
+  });
+
+  void _showTagPicker(BuildContext context, List<Tag> currentTags) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => TagPickerSheet(
+        customerId: customerId,
+        currentTags: currentTags,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tagsAsync = ref.watch(customerTagsProvider(customerId));
+
+    return tagsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (tags) {
+        final atMax = tags.length >= kMaxTagsPerCustomer;
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              // Existing tags
+              ...tags.map((tag) => Chip(
+                    label: Text(tag.label),
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: theme.colorScheme.primary,
+                    ),
+                    backgroundColor:
+                        theme.colorScheme.primary.withValues(alpha: 0.06),
+                    side: BorderSide(
+                      color:
+                          theme.colorScheme.primary.withValues(alpha: 0.2),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    deleteIconColor: theme.colorScheme.primary,
+                    onDeleted: () async {
+                      try {
+                        await ref
+                            .read(tagActionsProvider)
+                            .detachTagFromCustomer(customerId, tag.id);
+                      } catch (_) {}
+                    },
+                    materialTapTargetSize:
+                        MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  )),
+
+              // Add tag / max reached
+              if (atMax)
+                Chip(
+                  label: const Text('Max 4'),
+                  labelStyle: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.4),
+                  ),
+                  backgroundColor: Colors.transparent,
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant
+                        .withValues(alpha: 0.5),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  materialTapTargetSize:
+                      MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                )
+              else
+                ActionChip(
+                  label: const Text('+ Tag'),
+                  onPressed: () => _showTagPicker(context, tags),
+                  labelStyle: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  backgroundColor: Colors.transparent,
+                  side: BorderSide(
+                    color: theme.colorScheme.primary
+                        .withValues(alpha: 0.3),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  materialTapTargetSize:
+                      MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
             ],
           ),
         );

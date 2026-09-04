@@ -4,12 +4,15 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/customer.dart';
 import '../models/sale.dart';
+import '../models/tag.dart';
 import '../providers/auth_provider.dart';
 import '../providers/customer_provider.dart';
 import '../providers/sale_provider.dart';
+import '../providers/tag_provider.dart';
 import '../services/customer_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/metric_card.dart';
+import '../widgets/tag_picker_sheet.dart';
 import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
 
@@ -334,6 +337,14 @@ class _CustomerDetailBody extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Customer Tags ────────────────────────────────────────
+          _CustomerTagsSection(
+            customerId: customerId,
+            ref: ref,
           ),
 
           const SizedBox(height: 16),
@@ -820,6 +831,156 @@ class _HistoryPeriodFilter extends StatelessWidget {
           );
         }).toList(),
       ),
+    );
+  }
+}
+
+// ── Customer Tags Section ─────────────────────────────────────────────────────
+
+class _CustomerTagsSection extends ConsumerWidget {
+  final String customerId;
+  final WidgetRef ref;
+
+  const _CustomerTagsSection({
+    required this.customerId,
+    required this.ref,
+  });
+
+  void _showTagPicker(BuildContext context, List<Tag> currentTags) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => TagPickerSheet(
+        customerId: customerId,
+        currentTags: currentTags,
+      ),
+    );
+  }
+
+  Future<void> _removeTag(
+      BuildContext context, WidgetRef ref, Tag tag) async {
+    try {
+      await ref
+          .read(tagActionsProvider)
+          .detachTagFromCustomer(customerId, tag.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not remove tag: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tagsAsync = ref.watch(customerTagsProvider(customerId));
+
+    return tagsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (tags) {
+        final atMax = tags.length >= kMaxTagsPerCustomer;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section label
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 6),
+              child: Text(
+                'TAGS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                // Existing tag chips
+                ...tags.map((tag) => Chip(
+                      label: Text(tag.label),
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: AppColors.primaryPurple,
+                      ),
+                      backgroundColor:
+                          AppColors.primaryPurple.withValues(alpha: 0.06),
+                      side: BorderSide(
+                        color:
+                            AppColors.primaryPurple.withValues(alpha: 0.2),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      deleteIconColor: AppColors.primaryPurple,
+                      onDeleted: () => _removeTag(context, ref, tag),
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                    )),
+
+                // Add tag button (or max message)
+                if (atMax)
+                  Chip(
+                    label: const Text('Max 4 tags'),
+                    avatar: const Icon(Icons.info_outline,
+                        size: 14, color: AppColors.textSecondary),
+                    labelStyle: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                    backgroundColor: Colors.transparent,
+                    side: BorderSide(
+                      color: AppColors.borderLight,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    materialTapTargetSize:
+                        MaterialTapTargetSize.shrinkWrap,
+                  )
+                else
+                  ActionChip(
+                    label: const Text('Add Tag'),
+                    avatar: const Icon(Icons.add,
+                        size: 16, color: AppColors.primaryPurple),
+                    onPressed: () => _showTagPicker(context, tags),
+                    backgroundColor: Colors.transparent,
+                    labelStyle: const TextStyle(
+                      color: AppColors.primaryPurple,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    side: BorderSide(
+                      color: AppColors.primaryPurple.withValues(alpha: 0.3),
+                      style: BorderStyle.solid,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    materialTapTargetSize:
+                        MaterialTapTargetSize.shrinkWrap,
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
