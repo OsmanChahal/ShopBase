@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants/business_types.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
 import 'subscription_screen.dart';
@@ -14,9 +15,12 @@ class RegisterScreen extends ConsumerStatefulWidget {
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _businessNameController = TextEditingController();
+  final _customBusinessTypeController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  String? _selectedBusinessType;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -24,6 +28,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void dispose() {
     _businessNameController.dispose();
+    _customBusinessTypeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -33,6 +38,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final businessType = _selectedBusinessType == kOtherBusinessType
+        ? _customBusinessTypeController.text.trim()
+        : _selectedBusinessType!;
+
     setState(() => _isLoading = true);
 
     try {
@@ -40,6 +49,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             email: _emailController.text.trim(),
             password: _passwordController.text,
             businessName: _businessNameController.text.trim(),
+            businessType: businessType,
           );
 
       // Registration succeeded — navigate to subscription placeholder.
@@ -117,6 +127,61 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+
+                // Business type dropdown
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedBusinessType,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Business Type *',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  items: [
+                    ...kBusinessTypes.map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(type, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                    const DropdownMenuItem(
+                      value: kOtherBusinessType,
+                      child: Text(kOtherBusinessType),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedBusinessType = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select a business type';
+                    }
+                    return null;
+                  },
+                ),
+                if (_selectedBusinessType == kOtherBusinessType) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _customBusinessTypeController,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Specify Business Type *',
+                      prefixIcon: Icon(Icons.edit_outlined),
+                      hintText: 'e.g. Pet Salon, Antique Shop',
+                    ),
+                    validator: (value) {
+                      if (_selectedBusinessType == kOtherBusinessType) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please specify your business type';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // Email

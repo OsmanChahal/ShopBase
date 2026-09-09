@@ -2,6 +2,7 @@ class Business {
   final String id;
   final String ownerId;
   final String name;
+  final String? businessType;
   final double currencyRate;
   final DateTime? currencyRateUpdatedAt;
   final DateTime createdAt;
@@ -10,6 +11,7 @@ class Business {
     required this.id,
     required this.ownerId,
     required this.name,
+    this.businessType,
     required this.currencyRate,
     this.currencyRateUpdatedAt,
     required this.createdAt,
@@ -20,6 +22,7 @@ class Business {
       id: json['id'] as String,
       ownerId: json['owner_id'] as String,
       name: json['name'] as String,
+      businessType: json['business_type'] as String?,
       currencyRate: (json['currency_rate'] as num).toDouble(),
       currencyRateUpdatedAt: json['currency_rate_updated_at'] != null
           ? DateTime.parse(json['currency_rate_updated_at'] as String)
@@ -33,6 +36,7 @@ class Business {
       'id': id,
       'owner_id': ownerId,
       'name': name,
+      'business_type': businessType,
       'currency_rate': currencyRate,
       'currency_rate_updated_at': currencyRateUpdatedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
@@ -43,6 +47,7 @@ class Business {
     String? id,
     String? ownerId,
     String? name,
+    String? businessType,
     double? currencyRate,
     DateTime? currencyRateUpdatedAt,
     DateTime? createdAt,
@@ -51,6 +56,7 @@ class Business {
       id: id ?? this.id,
       ownerId: ownerId ?? this.ownerId,
       name: name ?? this.name,
+      businessType: businessType ?? this.businessType,
       currencyRate: currencyRate ?? this.currencyRate,
       currencyRateUpdatedAt: currencyRateUpdatedAt ?? this.currencyRateUpdatedAt,
       createdAt: createdAt ?? this.createdAt,

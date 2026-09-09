@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants/business_types.dart';
 import '../models/tag.dart';
 import '../providers/auth_provider.dart';
 import '../providers/tag_provider.dart';
@@ -15,10 +16,15 @@ class SettingsSheet extends ConsumerStatefulWidget {
 
 class _SettingsSheetState extends ConsumerState<SettingsSheet> {
   late TextEditingController _businessNameController;
+  late TextEditingController _customBusinessTypeController;
   late TextEditingController _rateController;
 
+  String? _selectedBusinessType;
   bool _isSavingName = false;
   String? _nameErrorText;
+
+  bool _isSavingType = false;
+  String? _businessTypeErrorText;
 
   bool _isSavingRate = false;
   String? _rateErrorText;
@@ -33,11 +39,26 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     _rateController = TextEditingController(
       text: business?.currencyRate.toStringAsFixed(0) ?? '',
     );
+
+    final currentType = business?.businessType;
+    if (currentType != null && currentType.isNotEmpty) {
+      if (kBusinessTypes.contains(currentType)) {
+        _selectedBusinessType = currentType;
+        _customBusinessTypeController = TextEditingController();
+      } else {
+        _selectedBusinessType = kOtherBusinessType;
+        _customBusinessTypeController = TextEditingController(text: currentType);
+      }
+    } else {
+      _selectedBusinessType = null;
+      _customBusinessTypeController = TextEditingController();
+    }
   }
 
   @override
   void dispose() {
     _businessNameController.dispose();
+    _customBusinessTypeController.dispose();
     _rateController.dispose();
     super.dispose();
   }
@@ -96,6 +117,52 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     } finally {
       if (mounted) {
         setState(() => _isSavingName = false);
+      }
+    }
+  }
+
+  Future<void> _saveBusinessType() async {
+    if (_selectedBusinessType == null || _selectedBusinessType!.isEmpty) {
+      setState(() => _businessTypeErrorText = 'Please select a business type');
+      return;
+    }
+
+    final String typeToSave;
+    if (_selectedBusinessType == kOtherBusinessType) {
+      final customText = _customBusinessTypeController.text.trim();
+      if (customText.isEmpty) {
+        setState(() => _businessTypeErrorText = 'Please specify your business type');
+        return;
+      }
+      typeToSave = customText;
+    } else {
+      typeToSave = _selectedBusinessType!;
+    }
+
+    setState(() {
+      _isSavingType = true;
+      _businessTypeErrorText = null;
+    });
+
+    try {
+      await ref.read(authProvider.notifier).updateBusinessType(typeToSave);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Business type updated successfully'),
+            backgroundColor: AppColors.statusSuccess,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _businessTypeErrorText = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingType = false);
       }
     }
   }
@@ -313,7 +380,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
 
                   const SizedBox(height: 24),
 
-                  // 3. Edit Business Name Section
+                  // 3. Edit Business Profile Section
                   Text(
                     'BUSINESS PROFILE',
                     style: theme.textTheme.labelMedium?.copyWith(
@@ -357,6 +424,70 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                                     ),
                                   )
                                 : const Text('Save Business Name'),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Divider(height: 1),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedBusinessType,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Business Type',
+                            prefixIcon: const Icon(Icons.category_outlined),
+                            errorText: _businessTypeErrorText,
+                          ),
+                          items: [
+                            ...kBusinessTypes.map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type, overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                            const DropdownMenuItem(
+                              value: kOtherBusinessType,
+                              child: Text(kOtherBusinessType),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedBusinessType = value;
+                              _businessTypeErrorText = null;
+                            });
+                          },
+                        ),
+                        if (_selectedBusinessType == kOtherBusinessType) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _customBusinessTypeController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Specify Business Type',
+                              prefixIcon: Icon(Icons.edit_outlined),
+                              hintText: 'e.g. Pet Salon, Antique Shop',
+                            ),
+                            onChanged: (_) {
+                              if (_businessTypeErrorText != null) {
+                                setState(() => _businessTypeErrorText = null);
+                              }
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isSavingType ? null : _saveBusinessType,
+                            child: _isSavingType
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Save Business Type'),
                           ),
                         ),
                       ],

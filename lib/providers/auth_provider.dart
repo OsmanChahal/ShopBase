@@ -142,6 +142,7 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
     required String email,
     required String password,
     required String businessName,
+    required String businessType,
   }) async {
     _isSigningUp = true;
     state = const AuthBusinessState.loading();
@@ -150,6 +151,7 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
         email: email,
         password: password,
         businessName: businessName,
+        businessType: businessType,
       );
       // Use the returned Business directly — no separate fetch needed,
       // no race with the listener.
@@ -194,6 +196,20 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
     }
     try {
       final updated = await _authService.updateBusinessName(business.id, name);
+      state = AuthBusinessState.authenticated(updated);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update the type of the current business.
+  Future<void> updateBusinessType(String businessType) async {
+    final business = state.business;
+    if (business == null) {
+      throw Exception('No business loaded.');
+    }
+    try {
+      final updated = await _authService.updateBusinessType(business.id, businessType);
       state = AuthBusinessState.authenticated(updated);
     } catch (e) {
       rethrow;

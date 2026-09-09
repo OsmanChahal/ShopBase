@@ -40,6 +40,7 @@ class AuthService {
     required String email,
     required String password,
     required String businessName,
+    required String businessType,
   }) async {
     // 1. Create the auth user
     AuthResponse authResponse;
@@ -66,6 +67,7 @@ class AuthService {
           .insert({
             'owner_id': userId,
             'name': businessName,
+            'business_type': businessType,
             'currency_rate': 89500,
             'currency_rate_updated_at': DateTime.now().toUtc().toIso8601String(),
           })
@@ -128,6 +130,24 @@ class AuthService {
       return Business.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update business name. Please try again.');
+    }
+  }
+
+  /// Update the business type.
+  Future<Business> updateBusinessType(String businessId, String businessType) async {
+    try {
+      final response = await _client
+          .from('businesses')
+          .update({
+            'business_type': businessType,
+          })
+          .eq('id', businessId)
+          .select()
+          .single();
+
+      return Business.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to update business type. Please try again.');
     }
   }
 
