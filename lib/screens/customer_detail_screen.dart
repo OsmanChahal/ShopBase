@@ -12,6 +12,7 @@ import '../providers/tag_provider.dart';
 import '../services/customer_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/metric_card.dart';
+import '../widgets/offline_scope_boundary.dart';
 import '../widgets/tag_picker_sheet.dart';
 import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
@@ -138,8 +139,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           ),
         ],
       ),
-      body: customerAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+      body: OfflineScopeBoundary(
+        child: customerAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -200,8 +202,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           },
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ── Body ─────────────────────────────────────────────────────────────────────

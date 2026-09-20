@@ -10,9 +10,9 @@ import '../providers/cart_provider.dart';
 import '../providers/customer_provider.dart';
 import '../providers/sale_provider.dart';
 import '../providers/tag_provider.dart';
+import '../sync/sync_provider.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/tag_picker_sheet.dart';
-import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
 
 class CartPanel extends ConsumerStatefulWidget {
@@ -806,11 +806,12 @@ class _CustomerPickerSection extends ConsumerWidget {
                 ),
               ],
             ),
-            // ── Inline tag management for the selected customer ──
-            _InlineCustomerTags(
-              customerId: selectedId,
-              theme: theme,
-            ),
+            // ── Inline tag management for the selected customer (online-only) ──
+            if (ref.watch(isOnlineProvider))
+              _InlineCustomerTags(
+                customerId: selectedId,
+                theme: theme,
+              ),
           ] else
             SizedBox(
               width: double.infinity,
@@ -869,22 +870,84 @@ class _CustomerSearchSheetState
     extends ConsumerState<_CustomerSearchSheet> {
   String _query = '';
 
-  Future<void> _addNewCustomer(BuildContext context) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const CustomerFormScreen()),
-    );
+  /// Lightweight inline customer creation for POS — writes to local DB + enqueues.
+  void _addNewCustomer(BuildContext context) {
+    _showInlineCustomerDialog(context);
+  }
 
-    if (changed == true && mounted) {
-      // Invalidate customer list to get fresh list
-      ref.invalidate(customerListProvider);
-      final customers = await ref.read(customerListProvider.future);
-      if (customers.isNotEmpty && mounted) {
-        // Automatically select the newest customer (most recently added)
-        final newest = customers.reduce(
-            (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
-        widget.onSelect(newest);
-      }
-    }
+  void _showInlineCustomerDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Add Customer'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name *',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone (optional)',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+
+                final business = ref.read(currentBusinessProvider);
+                if (business == null) return;
+
+                final phone = phoneController.text.trim();
+                try {
+                  final customer =
+                      await ref.read(customerActionsProvider).addCustomer(
+                            businessId: business.id,
+                            name: name,
+                            phone: phone.isEmpty ? null : phone,
+                          );
+                  if (ctx.mounted) Navigator.of(ctx).pop();
+                  if (mounted) widget.onSelect(customer);
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          e.toString().replaceAll('Exception: ', ''),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -1018,7 +1081,7 @@ class _CustomerSearchSheetState
   }
 }
 
-// ── Inline Customer Tags (checkout flow) ──────────────────────────────────────
+// ── Inline Customer Tags (checkout flow, online-only) ─────────────────────────
 
 class _InlineCustomerTags extends ConsumerWidget {
   final String customerId;
@@ -1045,6 +1108,12 @@ class _InlineCustomerTags extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Defense-in-depth: if device is offline, hide tags immediately
+    final isOnline = ref.watch(isOnlineProvider);
+    if (!isOnline) {
+      return const SizedBox.shrink();
+    }
+
     final tagsAsync = ref.watch(customerTagsProvider(customerId));
 
     return tagsAsync.when(
@@ -1146,3 +1215,5 @@ class _InlineCustomerTags extends ConsumerWidget {
     );
   }
 }
+
+

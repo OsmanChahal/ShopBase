@@ -7,6 +7,10 @@ import 'screens/no_business_screen.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_colors.dart';
 
+/// Global key for displaying SnackBar notifications from anywhere in the app (e.g. sync engine).
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 class CrmPosApp extends ConsumerWidget {
   const CrmPosApp({super.key});
 
@@ -14,6 +18,7 @@ class CrmPosApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'ShopBase',
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
       home: _buildHome(ref),

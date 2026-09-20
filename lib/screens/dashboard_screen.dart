@@ -5,6 +5,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/product_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/metric_card.dart';
+import '../widgets/offline_scope_boundary.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/stat_badge.dart';
 import 'expense_list_screen.dart';
@@ -36,8 +37,9 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
+      body: OfflineScopeBoundary(
+        child: RefreshIndicator(
+          onRefresh: () async {
           ref.invalidate(todaySnapshotProvider);
           ref.invalidate(monthRevenueProvider);
           ref.invalidate(recurringExpensesProvider);
@@ -101,8 +103,9 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Today's Revenue Hero MetricCard (Gradient Variant).

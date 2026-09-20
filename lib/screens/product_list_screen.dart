@@ -6,6 +6,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/product_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_search_bar.dart';
+import '../widgets/connectivity_banner.dart';
 import '../widgets/floating_action_pill.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/product_card.dart';
@@ -85,6 +86,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const ConnectivityBanner(),
+
           // 1. Metric Stat Cards Row ("Total Items" & "Low Stock")
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),

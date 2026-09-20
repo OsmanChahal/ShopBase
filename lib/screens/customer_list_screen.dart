@@ -10,9 +10,11 @@ import '../providers/customer_provider.dart';
 import '../services/crm_analytics_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_search_bar.dart';
+import '../widgets/connectivity_banner.dart';
 import '../widgets/customer_list_tile.dart';
 import '../widgets/floating_action_pill.dart';
 import '../widgets/metric_card.dart';
+import '../widgets/offline_scope_boundary.dart';
 import '../widgets/stat_badge.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
@@ -121,7 +123,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
           // ─── Section body ───
           Expanded(
             child: _selectedSection == 0
-                ? const _OverviewSection()
+                ? const OfflineScopeBoundary(child: _OverviewSection())
                 : _CustomerListSection(
                     searchController: _searchController,
                     onAdd: _navigateToAdd,
@@ -1056,6 +1058,8 @@ class _CustomerListSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const ConnectivityBanner(),
+
         // Search bar
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),

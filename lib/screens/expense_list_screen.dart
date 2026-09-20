@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/expense.dart';
 import '../providers/expense_provider.dart';
+import '../widgets/offline_scope_boundary.dart';
 import 'expense_form_screen.dart';
 
 class ExpenseListScreen extends ConsumerWidget {
@@ -23,7 +24,8 @@ class ExpenseListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: expensesAsync.when(
+      body: OfflineScopeBoundary(
+        child: expensesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
           child: Padding(
@@ -126,7 +128,8 @@ class ExpenseListScreen extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+    ),
+    floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const ExpenseFormScreen()),
         ),

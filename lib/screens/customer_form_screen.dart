@@ -4,6 +4,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import '../models/customer.dart';
 import '../providers/auth_provider.dart';
 import '../providers/customer_provider.dart';
+import '../services/customer_service.dart';
 import '../widgets/loading_overlay.dart';
 
 class CustomerFormScreen extends ConsumerStatefulWidget {
@@ -63,14 +64,16 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         : null;
 
     try {
-      final actions = ref.read(customerActionsProvider);
+      // CRM customer form uses CustomerService directly (online-only).
+      // POS has its own lightweight inline creation that writes to local DB.
+      final service = CustomerService(ref.read(supabaseClientProvider));
 
       if (_isEditing) {
         final updated = widget.customer!.copyWith(
           name: _nameController.text.trim(),
           phone: phoneToSave,
         );
-        await actions.updateCustomer(updated);
+        await service.updateCustomer(updated);
       } else {
         final customer = Customer(
           id: '',
@@ -79,8 +82,11 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
           phone: phoneToSave,
           createdAt: DateTime.now(),
         );
-        await actions.addCustomer(customer);
+        await service.addCustomer(customer);
       }
+
+      // Refresh the customer list provider so local cache stays in sync
+      ref.invalidate(customerListProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,9 +132,12 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await ref
-          .read(customerActionsProvider)
-          .deleteCustomer(widget.customer!.id);
+      // CRM deletion uses CustomerService directly (online-only)
+      final service = CustomerService(ref.read(supabaseClientProvider));
+      await service.deleteCustomer(widget.customer!.id);
+
+      // Refresh the customer list provider
+      ref.invalidate(customerListProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

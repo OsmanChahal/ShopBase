@@ -6,6 +6,7 @@ import '../providers/cart_provider.dart';
 import '../providers/product_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_search_bar.dart';
+import '../widgets/connectivity_banner.dart';
 import '../widgets/floating_action_pill.dart';
 import '../widgets/product_card.dart';
 import 'cart_panel.dart';
@@ -96,6 +97,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       ),
       body: Column(
         children: [
+          const ConnectivityBanner(),
+
           // 1. Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),

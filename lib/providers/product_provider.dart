@@ -1,19 +1,35 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../database/app_database.dart';
+import '../database/database_provider.dart';
+import '../database/local_product_repository.dart';
+import '../database/sync_queue_repository.dart';
 import '../models/product.dart';
-import '../services/product_service.dart';
 import 'auth_provider.dart';
 
-/// Provides the ProductService instance.
-final productServiceProvider = Provider<ProductService>((ref) {
-  return ProductService(ref.watch(supabaseClientProvider));
+/// Provides the SyncQueueRepository instance (shared across repos).
+final syncQueueRepositoryProvider = Provider<SyncQueueRepository>((ref) {
+  return SyncQueueRepository(ref.watch(appDatabaseProvider));
 });
 
-/// Fetches the product list for the current business.
+/// Provides the LocalProductRepository instance.
+final localProductRepositoryProvider = Provider<LocalProductRepository>((ref) {
+  return LocalProductRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(syncQueueRepositoryProvider),
+  );
+});
+
+/// Fetches the product list for the current business from the local database.
 /// Use ref.invalidate(productListProvider) to refresh.
 final productListProvider = FutureProvider<List<Product>>((ref) async {
   final business = ref.watch(currentBusinessProvider);
   if (business == null) return [];
-  return ref.watch(productServiceProvider).getProducts(business.id);
+
+  final repo = ref.watch(localProductRepositoryProvider);
+  final localProducts = await repo.getProducts(business.id);
+
+  // Convert LocalProduct (drift row) → Product (app model)
+  return localProducts.map(_localProductToModel).toList();
 });
 
 /// Shared search query state for product search across POS & Inventory screens.
@@ -34,35 +50,53 @@ final filteredProductListProvider = Provider<AsyncValue<List<Product>>>((ref) {
   });
 });
 
-/// Helper class for product actions that need to invalidate the list.
+/// Helper class for product actions that operate on the local database.
 class ProductActions {
   final Ref ref;
 
   ProductActions(this.ref);
 
-  ProductService get _service => ref.read(productServiceProvider);
+  LocalProductRepository get _repo => ref.read(localProductRepositoryProvider);
 
   Future<Product> addProduct(Product product) async {
-    final result = await _service.addProduct(product);
+    final result = await _repo.addProduct(
+      businessId: product.businessId,
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      costPriceUsd: product.costPriceUsd,
+      sellPriceUsd: product.sellPriceUsd,
+      quantity: product.quantity,
+      lowStockThreshold: product.lowStockThreshold,
+    );
     ref.invalidate(productListProvider);
-    return result;
+    return _localProductToModel(result);
   }
 
   Future<Product> updateProduct(Product product) async {
-    final result = await _service.updateProduct(product);
+    final result = await _repo.updateProduct(
+      id: product.id!,
+      businessId: product.businessId,
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      costPriceUsd: product.costPriceUsd,
+      sellPriceUsd: product.sellPriceUsd,
+      lowStockThreshold: product.lowStockThreshold,
+    );
     ref.invalidate(productListProvider);
-    return result;
+    return _localProductToModel(result);
   }
 
   Future<void> deleteProduct(String productId) async {
-    await _service.deleteProduct(productId);
+    await _repo.deleteProduct(productId);
     ref.invalidate(productListProvider);
   }
 
   Future<Product> adjustStock(String productId, int delta) async {
-    final result = await _service.adjustStock(productId, delta);
+    final result = await _repo.adjustStock(productId, delta);
     ref.invalidate(productListProvider);
-    return result;
+    return _localProductToModel(result);
   }
 }
 
@@ -70,3 +104,19 @@ class ProductActions {
 final productActionsProvider = Provider<ProductActions>((ref) {
   return ProductActions(ref);
 });
+
+/// Convert a drift LocalProduct row into the app-level Product model.
+Product _localProductToModel(LocalProduct lp) {
+  return Product(
+    id: lp.id,
+    businessId: lp.businessId,
+    name: lp.name,
+    sku: lp.sku,
+    category: lp.category,
+    costPriceUsd: lp.costPriceUsd,
+    sellPriceUsd: lp.sellPriceUsd,
+    quantity: lp.quantity,
+    lowStockThreshold: lp.lowStockThreshold,
+    updatedAt: lp.updatedAt,
+  );
+}

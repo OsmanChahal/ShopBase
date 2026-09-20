@@ -6,6 +6,7 @@ import '../models/tag.dart';
 import '../providers/auth_provider.dart';
 import '../providers/tag_provider.dart';
 import '../theme/app_colors.dart';
+import '../widgets/offline_scope_boundary.dart';
 
 class SettingsSheet extends ConsumerStatefulWidget {
   const SettingsSheet({super.key});
@@ -302,8 +303,9 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
 
           // Scrollable body
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(
+            child: OfflineScopeBoundary(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
                 left: 24,
                 right: 24,
                 top: 20,
@@ -635,10 +637,11 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 }
 
 // ── Manage Tags Section ───────────────────────────────────────────────────────
