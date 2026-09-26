@@ -52,29 +52,33 @@ class AuthService {
     } on AuthException catch (e) {
       throw Exception(e.message);
     } catch (e) {
-      throw Exception('Failed to create account. Please check your connection.');
+      throw Exception(
+        'Failed to create account. Please check your connection.',
+      );
     }
 
     final userId = authResponse.user?.id;
     if (userId == null) {
-      throw Exception('Account created but user ID not returned. Please try logging in.');
+      throw Exception(
+        'Account created but user ID not returned. Please try logging in.',
+      );
     }
-
+    late final Map<String, dynamic> response;
     // 2. Create the business row
     try {
-      final response = await _client
+      response = await _client
           .from('businesses')
           .insert({
             'owner_id': userId,
             'name': businessName,
             'business_type': businessType,
             'currency_rate': 89500,
-            'currency_rate_updated_at': DateTime.now().toUtc().toIso8601String(),
+            'currency_rate_updated_at': DateTime.now()
+                .toUtc()
+                .toIso8601String(),
           })
           .select()
           .single();
-
-      return Business.fromJson(response);
     } catch (e) {
       throw Exception(
         'Account created successfully, but business setup failed: '
@@ -82,6 +86,23 @@ class AuthService {
         'Please try logging in — if the issue persists, contact support.',
       );
     }
+    try {
+      // 3. Creating business members
+      await _client.from('business_members').insert({
+        'business_id': response['id'],
+        'user_id': userId,
+        'permissions': {'all': true},
+        'role': 'admin',
+        'status': 'active',
+      });
+    } catch (e) {
+      throw Exception(
+        'Your account and business were created, but we couldn\'t finish '
+        'setup. Please contact support with this business name: '
+        '$businessName',
+      );
+    }
+    return Business.fromJson(response);
   }
 
   /// Get the current session, or null if not authenticated.
@@ -95,8 +116,7 @@ class AuthService {
   }
 
   /// Stream of auth state changes.
-  Stream<AuthState> get onAuthStateChange =>
-      _client.auth.onAuthStateChange;
+  Stream<AuthState> get onAuthStateChange => _client.auth.onAuthStateChange;
 
   /// Fetch the business linked to the given user ID.
   /// Returns null if no business is found.
@@ -120,9 +140,7 @@ class AuthService {
     try {
       final response = await _client
           .from('businesses')
-          .update({
-            'name': name,
-          })
+          .update({'name': name})
           .eq('id', businessId)
           .select()
           .single();
@@ -134,13 +152,14 @@ class AuthService {
   }
 
   /// Update the business type.
-  Future<Business> updateBusinessType(String businessId, String businessType) async {
+  Future<Business> updateBusinessType(
+    String businessId,
+    String businessType,
+  ) async {
     try {
       final response = await _client
           .from('businesses')
-          .update({
-            'business_type': businessType,
-          })
+          .update({'business_type': businessType})
           .eq('id', businessId)
           .select()
           .single();
@@ -159,7 +178,9 @@ class AuthService {
           .from('businesses')
           .update({
             'currency_rate': rate,
-            'currency_rate_updated_at': DateTime.now().toUtc().toIso8601String(),
+            'currency_rate_updated_at': DateTime.now()
+                .toUtc()
+                .toIso8601String(),
           })
           .eq('id', businessId)
           .select()
@@ -171,4 +192,3 @@ class AuthService {
     }
   }
 }
-
