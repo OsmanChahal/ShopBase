@@ -73,7 +73,7 @@ class SyncOrchestrator {
     _ref.read(isOnlineProvider.notifier).state = isOnline;
 
     if (isOnline) {
-      final hasPending = await queueRepo.hasPendingOrFailed();
+      final hasPending = await queueRepo.hasPendingOrFailed(businessId);
       if (hasPending) {
         dev.log('[SyncOrchestrator] Startup: pending entries found, syncing');
         await runSync(businessId: businessId, showToast: true);
@@ -102,7 +102,7 @@ class SyncOrchestrator {
       _invalidateProviders();
 
       if (showToast) {
-        final hasFailed = await queueRepo.hasFailedEntries();
+        final hasFailed = await queueRepo.hasFailedEntries(businessId);
         if (hasFailed) {
           _showSyncPendingToast();
         } else {

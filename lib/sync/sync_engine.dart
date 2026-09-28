@@ -15,15 +15,15 @@ class SyncEngine {
   /// Triggers full sync: Push pending local changes, then Pull remote updates.
   Future<void> sync(String businessId) async {
     dev.log('[SyncEngine] Starting sync for business: $businessId');
-    await _push();
+    await _push(businessId);
     await _pull(businessId);
     dev.log('[SyncEngine] Sync complete for business: $businessId');
   }
 
   // ── PUSH PHASE ─────────────────────────────────────────────────────────────
 
-  Future<void> _push() async {
-    final entries = await _queueRepo.getProcessableEntries();
+  Future<void> _push(String businessId) async {
+    final entries = await _queueRepo.getProcessableEntries(businessId);
     if (entries.isEmpty) {
       dev.log('[SyncEngine Push] No pending operations to push.');
       return;

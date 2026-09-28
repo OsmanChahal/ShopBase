@@ -69,6 +69,7 @@ class LocalSaleItems extends Table {
 /// Outbound sync queue — filled by every write, consumed by session 2's sync engine.
 class SyncQueueEntries extends Table {
   TextColumn get id => text()(); // UUID, primary key
+  TextColumn get businessId => text()();
   TextColumn get operationType => text()(); // product_upsert | product_delete | stock_adjustment | sale | customer_upsert
   TextColumn get payloadJson => text()();
   TextColumn get status => text().withDefault(const Constant('pending'))();
@@ -112,7 +113,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -120,6 +121,10 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.createTable(syncMetadataEntries);
+          }
+          if (from < 3) {
+            await m.deleteTable('sync_queue');
+            await m.createTable(syncQueueEntries);
           }
         },
       );

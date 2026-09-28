@@ -24,9 +24,9 @@ class LocalProductRepository {
 
   /// Fetch a single product by ID.
   Future<LocalProduct?> getProductById(String id) async {
-    return (_db.select(_db.localProducts)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (_db.select(
+      _db.localProducts,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   /// Check if any products exist for a business (used for initial pull guard).
@@ -103,16 +103,17 @@ class LocalProductRepository {
   }) async {
     final now = DateTime.now().toUtc();
 
-    await (_db.update(_db.localProducts)..where((t) => t.id.equals(id)))
-        .write(LocalProductsCompanion(
-      name: Value(name),
-      sku: Value(sku),
-      category: Value(category),
-      costPriceUsd: Value(costPriceUsd),
-      sellPriceUsd: Value(sellPriceUsd),
-      lowStockThreshold: Value(lowStockThreshold),
-      updatedAt: Value(now),
-    ));
+    await (_db.update(_db.localProducts)..where((t) => t.id.equals(id))).write(
+      LocalProductsCompanion(
+        name: Value(name),
+        sku: Value(sku),
+        category: Value(category),
+        costPriceUsd: Value(costPriceUsd),
+        sellPriceUsd: Value(sellPriceUsd),
+        lowStockThreshold: Value(lowStockThreshold),
+        updatedAt: Value(now),
+      ),
+    );
 
     // Enqueue for sync (non-quantity fields only)
     await _syncQueue.enqueue(
@@ -156,28 +157,21 @@ class LocalProductRepository {
     }
 
     final now = DateTime.now().toUtc();
-    await (_db.update(_db.localProducts)..where((t) => t.id.equals(id)))
-        .write(LocalProductsCompanion(
-      quantity: Value(newQty),
-      updatedAt: Value(now),
-    ));
+    await (_db.update(_db.localProducts)..where((t) => t.id.equals(id))).write(
+      LocalProductsCompanion(quantity: Value(newQty), updatedAt: Value(now)),
+    );
 
     // Enqueue with DELTA, not final value
     await _syncQueue.enqueue(
       operationType: 'stock_adjustment',
-      payloadJson: jsonEncode({
-        'product_id': id,
-        'delta': delta,
-      }),
+      payloadJson: jsonEncode({'product_id': id, 'delta': delta}),
     );
 
     return (await getProductById(id))!;
   }
 
   /// Batch insert products from the initial pull (no sync queue entries needed).
-  Future<void> bulkInsertProducts(
-    List<LocalProductsCompanion> products,
-  ) async {
+  Future<void> bulkInsertProducts(List<LocalProductsCompanion> products) async {
     await _db.batch((batch) {
       batch.insertAll(_db.localProducts, products);
     });

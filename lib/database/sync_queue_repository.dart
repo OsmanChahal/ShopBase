@@ -92,14 +92,18 @@ class SyncQueueRepository {
 
   /// Mark the record status failed with error message and increment retry count
   Future<void> markFailed(String id, String error) async {
-    final entry = await (_db.select(_db.syncQueueEntries)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final entry = await (_db.select(
+      _db.syncQueueEntries,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     final currentRetry = entry?.retryCount ?? 0;
-    await (_db.update(_db.syncQueueEntries)..where((t) => t.id.equals(id)))
-        .write(SyncQueueEntriesCompanion(
-          status: const Value('failed'),
-          retryCount: Value(currentRetry + 1),
-          lastError: Value(error),
-        ));
+    await (_db.update(
+      _db.syncQueueEntries,
+    )..where((t) => t.id.equals(id))).write(
+      SyncQueueEntriesCompanion(
+        status: const Value('failed'),
+        retryCount: Value(currentRetry + 1),
+        lastError: Value(error),
+      ),
+    );
   }
 }
-

@@ -24,9 +24,9 @@ class LocalCustomerRepository {
 
   /// Fetch a single customer by ID.
   Future<LocalCustomer?> getCustomerById(String id) async {
-    return (_db.select(_db.localCustomers)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (_db.select(
+      _db.localCustomers,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   /// Check if any customers exist for a business (initial pull guard).

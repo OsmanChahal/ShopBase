@@ -1,9 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/business.dart';
+import 'package:uuid/uuid.dart';
 
 class AuthService {
   final SupabaseClient _client;
-
+  static const _uuid = Uuid();
   AuthService(this._client);
 
   /// Sign in with email and password.
@@ -36,6 +37,8 @@ class AuthService {
 
   /// Sign up a new user and create their business row.
   /// Returns the created Business on success.
+  /// Sign up a new user and create their business row.
+  /// Returns the created Business on success.
   Future<Business> signUp({
     required String email,
     required String password,
@@ -63,33 +66,31 @@ class AuthService {
         'Account created but user ID not returned. Please try logging in.',
       );
     }
-    late final Map<String, dynamic> response;
-    // 2. Create the business row
+
+    // Generate the business ID on the client so we never need to rely on
+    // Postgres's RETURNING clause before a business_members row exists to
+    // satisfy the businesses table's SELECT policy.
+    final businessId = _uuid.v4();
+
+    // 2. Create the business row (plain insert, no .select() — avoids
+    // triggering a SELECT-policy check before membership exists)
     try {
-      response = await _client
-          .from('businesses')
-          .insert({
-            'owner_id': userId,
-            'name': businessName,
-            'business_type': businessType,
-            'currency_rate': 89500,
-            'currency_rate_updated_at': DateTime.now()
-                .toUtc()
-                .toIso8601String(),
-          })
-          .select()
-          .single();
+      await _client.from('businesses').insert({
+        'id': businessId,
+        'owner_id': userId,
+        'name': businessName,
+        'business_type': businessType,
+        'currency_rate': 89500,
+        'currency_rate_updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
     } catch (e) {
-      throw Exception(
-        'Account created successfully, but business setup failed: '
-        '${e.toString().replaceAll('Exception: ', '')}. '
-        'Please try logging in — if the issue persists, contact support.',
-      );
+      throw Exception('Failed to create your business. Please try again.');
     }
+
+    // 3. Create the business_members row
     try {
-      // 3. Creating business members
       await _client.from('business_members').insert({
-        'business_id': response['id'],
+        'business_id': businessId,
         'user_id': userId,
         'permissions': {'all': true},
         'role': 'admin',
@@ -102,7 +103,22 @@ class AuthService {
         '$businessName',
       );
     }
-    return Business.fromJson(response);
+
+    // 4. Now fetch the business — membership exists, so the SELECT policy
+    // correctly passes this time
+    try {
+      final response = await _client
+          .from('businesses')
+          .select()
+          .eq('id', businessId)
+          .single();
+      return Business.fromJson(response);
+    } catch (e) {
+      throw Exception(
+        'Setup completed, but failed to load your business. '
+        'Please try logging in.',
+      );
+    }
   }
 
   /// Get the current session, or null if not authenticated.
@@ -128,7 +144,26 @@ class AuthService {
           .eq('owner_id', userId)
           .maybeSingle();
 
-      if (response == null) return null;
+      if (response == null) {
+        final businessMembers = await _client
+            .from('business_members')
+            .select()
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .maybeSingle();
+        if (businessMembers == null) {
+          return null;
+        }
+        final businessResponse = await _client
+            .from('businesses')
+            .select()
+            .eq('id', businessMembers['business_id'])
+            .maybeSingle();
+        if (businessResponse == null) {
+          return null;
+        }
+        return Business.fromJson(businessResponse);
+      }
       return Business.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load business data. Please try again.');

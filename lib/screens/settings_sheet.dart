@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../providers/tag_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/offline_scope_boundary.dart';
+import 'manage_staff_screen.dart';
 
 class SettingsSheet extends ConsumerStatefulWidget {
   const SettingsSheet({super.key});
@@ -490,6 +491,71 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                                     ),
                                   )
                                 : const Text('Save Business Type'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── MANAGE STAFF ────────────────────────────────────
+                  Text(
+                    'MANAGE STAFF',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: AppColors.textGray,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.baseWhite,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.borderGray),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.people_outline,
+                                size: 20, color: AppColors.primaryPurple),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Staff Accounts',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Invite and manage staff members for this business.',
+                          style: TextStyle(
+                            color: AppColors.textGray,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ManageStaffScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.group_add_outlined, size: 18),
+                            label: const Text('Manage Staff'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
                           ),
                         ),
                       ],

@@ -24,9 +24,9 @@ class LocalSaleRepository {
 
   /// Fetch line items for a specific sale.
   Future<List<LocalSaleItem>> getSaleItems(String saleId) async {
-    return (_db.select(_db.localSaleItems)
-          ..where((t) => t.saleId.equals(saleId)))
-        .get();
+    return (_db.select(
+      _db.localSaleItems,
+    )..where((t) => t.saleId.equals(saleId))).get();
   }
 
   /// Create a sale with its line items and stock decrements in a single transaction.
@@ -56,15 +56,17 @@ class LocalSaleRepository {
 
     for (final item in items) {
       final itemId = _uuid.v4();
-      saleItems.add(LocalSaleItemsCompanion.insert(
-        id: itemId,
-        saleId: saleId,
-        productId: item['productId'] as String,
-        productNameSnapshot: item['productName'] as String,
-        quantity: item['quantity'] as int,
-        unitPriceUsd: item['unitPriceUsd'] as double,
-        subtotalUsd: item['subtotalUsd'] as double,
-      ));
+      saleItems.add(
+        LocalSaleItemsCompanion.insert(
+          id: itemId,
+          saleId: saleId,
+          productId: item['productId'] as String,
+          productNameSnapshot: item['productName'] as String,
+          quantity: item['quantity'] as int,
+          unitPriceUsd: item['unitPriceUsd'] as double,
+          subtotalUsd: item['subtotalUsd'] as double,
+        ),
+      );
       itemsPayload.add({
         'id': itemId,
         'sale_id': saleId,
@@ -79,7 +81,9 @@ class LocalSaleRepository {
     // Execute everything in a transaction
     await _db.transaction(() async {
       // 1. Insert sale
-      await _db.into(_db.localSales).insert(
+      await _db
+          .into(_db.localSales)
+          .insert(
             LocalSalesCompanion.insert(
               id: saleId,
               businessId: businessId,
@@ -101,16 +105,18 @@ class LocalSaleRepository {
       for (final delta in stockDeltas) {
         final productId = delta['productId'] as String;
         final qty = delta['delta'] as int; // negative
-        final product = await (_db.select(_db.localProducts)
-              ..where((t) => t.id.equals(productId)))
-            .getSingleOrNull();
+        final product = await (_db.select(
+          _db.localProducts,
+        )..where((t) => t.id.equals(productId))).getSingleOrNull();
         if (product != null) {
-          await (_db.update(_db.localProducts)
-                ..where((t) => t.id.equals(productId)))
-              .write(LocalProductsCompanion(
-            quantity: Value(product.quantity + qty),
-            updatedAt: Value(now),
-          ));
+          await (_db.update(
+            _db.localProducts,
+          )..where((t) => t.id.equals(productId))).write(
+            LocalProductsCompanion(
+              quantity: Value(product.quantity + qty),
+              updatedAt: Value(now),
+            ),
+          );
         }
       }
     });
@@ -131,10 +137,7 @@ class LocalSaleRepository {
         },
         'items': itemsPayload,
         'stock_deltas': stockDeltas
-            .map((d) => {
-                  'product_id': d['productId'],
-                  'delta': d['delta'],
-                })
+            .map((d) => {'product_id': d['productId'], 'delta': d['delta']})
             .toList(),
       }),
     );

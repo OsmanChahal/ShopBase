@@ -195,7 +195,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     try {
       await ref
           .read(productActionsProvider)
-          .deleteProduct(widget.product!.id!);
+          .deleteProduct(widget.product!);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

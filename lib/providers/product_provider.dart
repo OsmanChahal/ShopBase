@@ -88,8 +88,11 @@ class ProductActions {
     return _localProductToModel(result);
   }
 
-  Future<void> deleteProduct(String productId) async {
-    await _repo.deleteProduct(productId);
+  Future<void> deleteProduct(Product product) async {
+    await _repo.deleteProduct(
+      id: product.id!,
+      businessId: product.businessId,
+    );
     ref.invalidate(productListProvider);
   }
 
