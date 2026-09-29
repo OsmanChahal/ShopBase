@@ -43,9 +43,11 @@ final filteredProductListProvider = Provider<AsyncValue<List<Product>>>((ref) {
   return productsAsync.whenData((products) {
     if (query.isEmpty) return products;
     return products
-        .where((p) =>
-            p.name.toLowerCase().contains(query) ||
-            (p.category != null && p.category!.toLowerCase().contains(query)))
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(query) ||
+              (p.category != null && p.category!.toLowerCase().contains(query)),
+        )
         .toList();
   });
 });
@@ -88,11 +90,8 @@ class ProductActions {
     return _localProductToModel(result);
   }
 
-  Future<void> deleteProduct(Product product) async {
-    await _repo.deleteProduct(
-      id: product.id!,
-      businessId: product.businessId,
-    );
+  Future<void> deleteProduct(String productId) async {
+    await _repo.deleteProduct(productId);
     ref.invalidate(productListProvider);
   }
 

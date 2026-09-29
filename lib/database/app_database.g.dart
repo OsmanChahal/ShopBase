@@ -2163,17 +2163,6 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _businessIdMeta = const VerificationMeta(
-    'businessId',
-  );
-  @override
-  late final GeneratedColumn<String> businessId = GeneratedColumn<String>(
-    'business_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
   static const VerificationMeta _operationTypeMeta = const VerificationMeta(
     'operationType',
   );
@@ -2243,7 +2232,6 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    businessId,
     operationType,
     payloadJson,
     status,
@@ -2267,14 +2255,6 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
-    }
-    if (data.containsKey('business_id')) {
-      context.handle(
-        _businessIdMeta,
-        businessId.isAcceptableOrUnknown(data['business_id']!, _businessIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_businessIdMeta);
     }
     if (data.containsKey('operation_type')) {
       context.handle(
@@ -2337,10 +2317,6 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      businessId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}business_id'],
-      )!,
       operationType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}operation_type'],
@@ -2376,7 +2352,6 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
 
 class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   final String id;
-  final String businessId;
   final String operationType;
   final String payloadJson;
   final String status;
@@ -2385,7 +2360,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   final String? lastError;
   const SyncQueueEntry({
     required this.id,
-    required this.businessId,
     required this.operationType,
     required this.payloadJson,
     required this.status,
@@ -2397,7 +2371,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['business_id'] = Variable<String>(businessId);
     map['operation_type'] = Variable<String>(operationType);
     map['payload_json'] = Variable<String>(payloadJson);
     map['status'] = Variable<String>(status);
@@ -2412,7 +2385,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   SyncQueueEntriesCompanion toCompanion(bool nullToAbsent) {
     return SyncQueueEntriesCompanion(
       id: Value(id),
-      businessId: Value(businessId),
       operationType: Value(operationType),
       payloadJson: Value(payloadJson),
       status: Value(status),
@@ -2431,7 +2403,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncQueueEntry(
       id: serializer.fromJson<String>(json['id']),
-      businessId: serializer.fromJson<String>(json['businessId']),
       operationType: serializer.fromJson<String>(json['operationType']),
       payloadJson: serializer.fromJson<String>(json['payloadJson']),
       status: serializer.fromJson<String>(json['status']),
@@ -2445,7 +2416,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'businessId': serializer.toJson<String>(businessId),
       'operationType': serializer.toJson<String>(operationType),
       'payloadJson': serializer.toJson<String>(payloadJson),
       'status': serializer.toJson<String>(status),
@@ -2457,7 +2427,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
 
   SyncQueueEntry copyWith({
     String? id,
-    String? businessId,
     String? operationType,
     String? payloadJson,
     String? status,
@@ -2466,7 +2435,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
     Value<String?> lastError = const Value.absent(),
   }) => SyncQueueEntry(
     id: id ?? this.id,
-    businessId: businessId ?? this.businessId,
     operationType: operationType ?? this.operationType,
     payloadJson: payloadJson ?? this.payloadJson,
     status: status ?? this.status,
@@ -2477,9 +2445,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   SyncQueueEntry copyWithCompanion(SyncQueueEntriesCompanion data) {
     return SyncQueueEntry(
       id: data.id.present ? data.id.value : this.id,
-      businessId: data.businessId.present
-          ? data.businessId.value
-          : this.businessId,
       operationType: data.operationType.present
           ? data.operationType.value
           : this.operationType,
@@ -2499,7 +2464,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   String toString() {
     return (StringBuffer('SyncQueueEntry(')
           ..write('id: $id, ')
-          ..write('businessId: $businessId, ')
           ..write('operationType: $operationType, ')
           ..write('payloadJson: $payloadJson, ')
           ..write('status: $status, ')
@@ -2513,7 +2477,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
   @override
   int get hashCode => Object.hash(
     id,
-    businessId,
     operationType,
     payloadJson,
     status,
@@ -2526,7 +2489,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
       identical(this, other) ||
       (other is SyncQueueEntry &&
           other.id == this.id &&
-          other.businessId == this.businessId &&
           other.operationType == this.operationType &&
           other.payloadJson == this.payloadJson &&
           other.status == this.status &&
@@ -2537,7 +2499,6 @@ class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
 
 class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
   final Value<String> id;
-  final Value<String> businessId;
   final Value<String> operationType;
   final Value<String> payloadJson;
   final Value<String> status;
@@ -2547,7 +2508,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
   final Value<int> rowid;
   const SyncQueueEntriesCompanion({
     this.id = const Value.absent(),
-    this.businessId = const Value.absent(),
     this.operationType = const Value.absent(),
     this.payloadJson = const Value.absent(),
     this.status = const Value.absent(),
@@ -2558,7 +2518,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
   });
   SyncQueueEntriesCompanion.insert({
     required String id,
-    required String businessId,
     required String operationType,
     required String payloadJson,
     this.status = const Value.absent(),
@@ -2567,13 +2526,11 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
     this.lastError = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       businessId = Value(businessId),
        operationType = Value(operationType),
        payloadJson = Value(payloadJson),
        createdAt = Value(createdAt);
   static Insertable<SyncQueueEntry> custom({
     Expression<String>? id,
-    Expression<String>? businessId,
     Expression<String>? operationType,
     Expression<String>? payloadJson,
     Expression<String>? status,
@@ -2584,7 +2541,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (businessId != null) 'business_id': businessId,
       if (operationType != null) 'operation_type': operationType,
       if (payloadJson != null) 'payload_json': payloadJson,
       if (status != null) 'status': status,
@@ -2597,7 +2553,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
 
   SyncQueueEntriesCompanion copyWith({
     Value<String>? id,
-    Value<String>? businessId,
     Value<String>? operationType,
     Value<String>? payloadJson,
     Value<String>? status,
@@ -2608,7 +2563,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
   }) {
     return SyncQueueEntriesCompanion(
       id: id ?? this.id,
-      businessId: businessId ?? this.businessId,
       operationType: operationType ?? this.operationType,
       payloadJson: payloadJson ?? this.payloadJson,
       status: status ?? this.status,
@@ -2624,9 +2578,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
-    }
-    if (businessId.present) {
-      map['business_id'] = Variable<String>(businessId.value);
     }
     if (operationType.present) {
       map['operation_type'] = Variable<String>(operationType.value);
@@ -2656,7 +2607,6 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntry> {
   String toString() {
     return (StringBuffer('SyncQueueEntriesCompanion(')
           ..write('id: $id, ')
-          ..write('businessId: $businessId, ')
           ..write('operationType: $operationType, ')
           ..write('payloadJson: $payloadJson, ')
           ..write('status: $status, ')
@@ -4036,7 +3986,6 @@ typedef $$LocalSaleItemsTableProcessedTableManager =
 typedef $$SyncQueueEntriesTableCreateCompanionBuilder =
     SyncQueueEntriesCompanion Function({
       required String id,
-      required String businessId,
       required String operationType,
       required String payloadJson,
       Value<String> status,
@@ -4048,7 +3997,6 @@ typedef $$SyncQueueEntriesTableCreateCompanionBuilder =
 typedef $$SyncQueueEntriesTableUpdateCompanionBuilder =
     SyncQueueEntriesCompanion Function({
       Value<String> id,
-      Value<String> businessId,
       Value<String> operationType,
       Value<String> payloadJson,
       Value<String> status,
@@ -4069,11 +4017,6 @@ class $$SyncQueueEntriesTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get businessId => $composableBuilder(
-    column: $table.businessId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4122,11 +4065,6 @@ class $$SyncQueueEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get businessId => $composableBuilder(
-    column: $table.businessId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get operationType => $composableBuilder(
     column: $table.operationType,
     builder: (column) => ColumnOrderings(column),
@@ -4169,11 +4107,6 @@ class $$SyncQueueEntriesTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get businessId => $composableBuilder(
-    column: $table.businessId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get operationType => $composableBuilder(
     column: $table.operationType,
@@ -4238,7 +4171,6 @@ class $$SyncQueueEntriesTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> businessId = const Value.absent(),
                 Value<String> operationType = const Value.absent(),
                 Value<String> payloadJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
@@ -4248,7 +4180,6 @@ class $$SyncQueueEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => SyncQueueEntriesCompanion(
                 id: id,
-                businessId: businessId,
                 operationType: operationType,
                 payloadJson: payloadJson,
                 status: status,
@@ -4260,7 +4191,6 @@ class $$SyncQueueEntriesTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                required String businessId,
                 required String operationType,
                 required String payloadJson,
                 Value<String> status = const Value.absent(),
@@ -4270,7 +4200,6 @@ class $$SyncQueueEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => SyncQueueEntriesCompanion.insert(
                 id: id,
-                businessId: businessId,
                 operationType: operationType,
                 payloadJson: payloadJson,
                 status: status,

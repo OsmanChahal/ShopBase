@@ -15,21 +15,23 @@ class SyncEngine {
   /// Triggers full sync: Push pending local changes, then Pull remote updates.
   Future<void> sync(String businessId) async {
     dev.log('[SyncEngine] Starting sync for business: $businessId');
-    await _push(businessId);
+    await _push();
     await _pull(businessId);
     dev.log('[SyncEngine] Sync complete for business: $businessId');
   }
 
   // ── PUSH PHASE ─────────────────────────────────────────────────────────────
 
-  Future<void> _push(String businessId) async {
-    final entries = await _queueRepo.getProcessableEntries(businessId);
+  Future<void> _push() async {
+    final entries = await _queueRepo.getProcessableEntries();
     if (entries.isEmpty) {
       dev.log('[SyncEngine Push] No pending operations to push.');
       return;
     }
 
-    dev.log('[SyncEngine Push] Processing ${entries.length} pending operations.');
+    dev.log(
+      '[SyncEngine Push] Processing ${entries.length} pending operations.',
+    );
 
     for (final entry in entries) {
       try {
@@ -51,11 +53,15 @@ class SyncEngine {
             await _handleCustomerUpsert(payload);
             break;
           default:
-            dev.log('[SyncEngine Push] Unknown operation type: ${entry.operationType}');
+            dev.log(
+              '[SyncEngine Push] Unknown operation type: ${entry.operationType}',
+            );
         }
         await _queueRepo.markSynced(entry.id);
       } catch (e, st) {
-        dev.log('[SyncEngine Push] Failed to process entry ${entry.id}: $e\n$st');
+        dev.log(
+          '[SyncEngine Push] Failed to process entry ${entry.id}: $e\n$st',
+        );
         await _queueRepo.markFailed(entry.id, e.toString());
       }
     }
@@ -77,16 +83,17 @@ class SyncEngine {
   Future<void> _handleStockAdjustment(Map<String, dynamic> payload) async {
     final productId = payload['product_id'] as String;
     final delta = payload['delta'] as int;
-    await _supabase.rpc('adjust_stock', params: {
-      'p_product_id': productId,
-      'p_delta': delta,
-    });
+    await _supabase.rpc(
+      'adjust_stock',
+      params: {'p_product_id': productId, 'p_delta': delta},
+    );
   }
 
   Future<void> _handleSale(Map<String, dynamic> payload) async {
     final saleData = payload['sale'] as Map<String, dynamic>;
     final itemsData = (payload['items'] as List).cast<Map<String, dynamic>>();
-    final stockDeltas = (payload['stock_deltas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final stockDeltas =
+        (payload['stock_deltas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     // 1. Upsert sale header
     await _supabase.from('sales').upsert(saleData);
@@ -100,10 +107,10 @@ class SyncEngine {
     for (final delta in stockDeltas) {
       final productId = delta['product_id'] as String;
       final qtyDelta = delta['delta'] as int;
-      await _supabase.rpc('adjust_stock', params: {
-        'p_product_id': productId,
-        'p_delta': qtyDelta,
-      });
+      await _supabase.rpc(
+        'adjust_stock',
+        params: {'p_product_id': productId, 'p_delta': qtyDelta},
+      );
     }
   }
 
@@ -126,14 +133,16 @@ class SyncEngine {
   }
 
   Future<DateTime?> _getLastPullAt(String businessId) async {
-    final row = await (_db.select(_db.syncMetadataEntries)
-          ..where((t) => t.businessId.equals(businessId)))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.syncMetadataEntries,
+    )..where((t) => t.businessId.equals(businessId))).getSingleOrNull();
     return row?.lastPullAt;
   }
 
   Future<void> _updateLastPullAt(String businessId, DateTime timestamp) async {
-    await _db.into(_db.syncMetadataEntries).insertOnConflictUpdate(
+    await _db
+        .into(_db.syncMetadataEntries)
+        .insertOnConflictUpdate(
           SyncMetadataEntriesCompanion.insert(
             businessId: businessId,
             lastPullAt: timestamp,
@@ -142,7 +151,10 @@ class SyncEngine {
   }
 
   Future<void> _pullProducts(String businessId, DateTime? lastPullAt) async {
-    dynamic query = _supabase.from('products').select().eq('business_id', businessId);
+    dynamic query = _supabase
+        .from('products')
+        .select()
+        .eq('business_id', businessId);
     if (lastPullAt != null) {
       query = query.gt('updated_at', lastPullAt.toIso8601String());
     }
@@ -150,20 +162,24 @@ class SyncEngine {
     final List<dynamic> remoteProducts = await query;
     if (remoteProducts.isEmpty) return;
 
-    dev.log('[SyncEngine Pull] Pulled ${remoteProducts.length} product updates.');
+    dev.log(
+      '[SyncEngine Pull] Pulled ${remoteProducts.length} product updates.',
+    );
 
     for (final raw in remoteProducts) {
       final item = raw as Map<String, dynamic>;
       final id = item['id'] as String;
       final serverUpdatedAt = DateTime.parse(item['updated_at'] as String);
 
-      final local = await (_db.select(_db.localProducts)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final local = await (_db.select(
+        _db.localProducts,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
 
       if (local == null) {
         // Product doesn't exist locally — insert
-        await _db.into(_db.localProducts).insert(
+        await _db
+            .into(_db.localProducts)
+            .insert(
               LocalProductsCompanion.insert(
                 id: id,
                 businessId: businessId,
@@ -173,7 +189,9 @@ class SyncEngine {
                 costPriceUsd: (item['cost_price_usd'] as num).toDouble(),
                 sellPriceUsd: (item['sell_price_usd'] as num).toDouble(),
                 quantity: item['quantity'] as int,
-                lowStockThreshold: Value(item['low_stock_threshold'] as int? ?? 5),
+                lowStockThreshold: Value(
+                  item['low_stock_threshold'] as int? ?? 5,
+                ),
                 updatedAt: Value(serverUpdatedAt),
                 lastSyncedAt: Value(DateTime.now().toUtc()),
               ),
@@ -182,27 +200,48 @@ class SyncEngine {
         // Product exists locally:
         // Server's quantity is always authoritative after push deltas.
         // For non-quantity fields, use Last-Write-Wins based on updatedAt.
-        final shouldUpdateNonQuantity = local.updatedAt == null ||
+        final shouldUpdateNonQuantity =
+            local.updatedAt == null ||
             serverUpdatedAt.isAfter(local.updatedAt!);
 
-        await (_db.update(_db.localProducts)..where((t) => t.id.equals(id)))
-            .write(LocalProductsCompanion(
-          quantity: Value(item['quantity'] as int),
-          name: shouldUpdateNonQuantity ? Value(item['name'] as String) : const Value.absent(),
-          sku: shouldUpdateNonQuantity ? Value(item['sku'] as String?) : const Value.absent(),
-          category: shouldUpdateNonQuantity ? Value(item['category'] as String?) : const Value.absent(),
-          costPriceUsd: shouldUpdateNonQuantity ? Value((item['cost_price_usd'] as num).toDouble()) : const Value.absent(),
-          sellPriceUsd: shouldUpdateNonQuantity ? Value((item['sell_price_usd'] as num).toDouble()) : const Value.absent(),
-          lowStockThreshold: shouldUpdateNonQuantity ? Value(item['low_stock_threshold'] as int? ?? 5) : const Value.absent(),
-          updatedAt: shouldUpdateNonQuantity ? Value(serverUpdatedAt) : const Value.absent(),
-          lastSyncedAt: Value(DateTime.now().toUtc()),
-        ));
+        await (_db.update(
+          _db.localProducts,
+        )..where((t) => t.id.equals(id))).write(
+          LocalProductsCompanion(
+            quantity: Value(item['quantity'] as int),
+            name: shouldUpdateNonQuantity
+                ? Value(item['name'] as String)
+                : const Value.absent(),
+            sku: shouldUpdateNonQuantity
+                ? Value(item['sku'] as String?)
+                : const Value.absent(),
+            category: shouldUpdateNonQuantity
+                ? Value(item['category'] as String?)
+                : const Value.absent(),
+            costPriceUsd: shouldUpdateNonQuantity
+                ? Value((item['cost_price_usd'] as num).toDouble())
+                : const Value.absent(),
+            sellPriceUsd: shouldUpdateNonQuantity
+                ? Value((item['sell_price_usd'] as num).toDouble())
+                : const Value.absent(),
+            lowStockThreshold: shouldUpdateNonQuantity
+                ? Value(item['low_stock_threshold'] as int? ?? 5)
+                : const Value.absent(),
+            updatedAt: shouldUpdateNonQuantity
+                ? Value(serverUpdatedAt)
+                : const Value.absent(),
+            lastSyncedAt: Value(DateTime.now().toUtc()),
+          ),
+        );
       }
     }
   }
 
   Future<void> _pullCustomers(String businessId, DateTime? lastPullAt) async {
-    dynamic query = _supabase.from('customers').select().eq('business_id', businessId);
+    dynamic query = _supabase
+        .from('customers')
+        .select()
+        .eq('business_id', businessId);
     if (lastPullAt != null) {
       query = query.gt('created_at', lastPullAt.toIso8601String());
     }
@@ -210,14 +249,18 @@ class SyncEngine {
     final List<dynamic> remoteCustomers = await query;
     if (remoteCustomers.isEmpty) return;
 
-    dev.log('[SyncEngine Pull] Pulled ${remoteCustomers.length} customer updates.');
+    dev.log(
+      '[SyncEngine Pull] Pulled ${remoteCustomers.length} customer updates.',
+    );
 
     for (final raw in remoteCustomers) {
       final item = raw as Map<String, dynamic>;
       final id = item['id'] as String;
       final createdAt = DateTime.parse(item['created_at'] as String);
 
-      await _db.into(_db.localCustomers).insertOnConflictUpdate(
+      await _db
+          .into(_db.localCustomers)
+          .insertOnConflictUpdate(
             LocalCustomersCompanion.insert(
               id: id,
               businessId: businessId,

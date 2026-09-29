@@ -148,9 +148,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              _isEditing ? 'Product updated' : 'Product added',
-            ),
+            content: Text(_isEditing ? 'Product updated' : 'Product added'),
           ),
         );
         Navigator.of(context).pop();
@@ -169,9 +167,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Product'),
-        content: const Text(
-          'Delete this product? This can\'t be undone.',
-        ),
+        content: const Text('Delete this product? This can\'t be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -193,14 +189,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await ref
-          .read(productActionsProvider)
-          .deleteProduct(widget.product!);
+      await ref.read(productActionsProvider).deleteProduct(widget.product!.id!);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Product deleted')));
         Navigator.of(context).pop();
       }
     } catch (e) {
@@ -326,7 +320,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       child: TextFormField(
                         controller: _costPriceController,
                         keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                          decimal: true,
+                        ),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                         ],
@@ -343,7 +338,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       child: TextFormField(
                         controller: _sellPriceController,
                         keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                          decimal: true,
+                        ),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                         ],

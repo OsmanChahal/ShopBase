@@ -17,7 +17,8 @@ class LocalProducts extends Table {
   IntColumn get quantity => integer()();
   IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
   DateTimeColumn get updatedAt => dateTime().nullable()();
-  DateTimeColumn get lastSyncedAt => dateTime().nullable()(); // null = never synced
+  DateTimeColumn get lastSyncedAt =>
+      dateTime().nullable()(); // null = never synced
 
   @override
   Set<Column> get primaryKey => {id};
@@ -30,7 +31,8 @@ class LocalCustomers extends Table {
   TextColumn get name => text()();
   TextColumn get phone => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get lastSyncedAt => dateTime().nullable()(); // null = never synced
+  DateTimeColumn get lastSyncedAt =>
+      dateTime().nullable()(); // null = never synced
 
   @override
   Set<Column> get primaryKey => {id};
@@ -69,8 +71,8 @@ class LocalSaleItems extends Table {
 /// Outbound sync queue — filled by every write, consumed by session 2's sync engine.
 class SyncQueueEntries extends Table {
   TextColumn get id => text()(); // UUID, primary key
-  TextColumn get businessId => text()();
-  TextColumn get operationType => text()(); // product_upsert | product_delete | stock_adjustment | sale | customer_upsert
+  TextColumn get operationType =>
+      text()(); // product_upsert | product_delete | stock_adjustment | sale | customer_upsert
   TextColumn get payloadJson => text()();
   TextColumn get status => text().withDefault(const Constant('pending'))();
   DateTimeColumn get createdAt => dateTime()();
@@ -98,14 +100,16 @@ class SyncMetadataEntries extends Table {
 
 // ── Database class ────────────────────────────────────────────────────────────
 
-@DriftDatabase(tables: [
-  LocalProducts,
-  LocalCustomers,
-  LocalSales,
-  LocalSaleItems,
-  SyncQueueEntries,
-  SyncMetadataEntries,
-])
+@DriftDatabase(
+  tables: [
+    LocalProducts,
+    LocalCustomers,
+    LocalSales,
+    LocalSaleItems,
+    SyncQueueEntries,
+    SyncMetadataEntries,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase.defaults() : super(driftDatabase(name: 'shopbase_local'));
 
@@ -113,19 +117,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await m.createTable(syncMetadataEntries);
-          }
-          if (from < 3) {
-            await m.deleteTable('sync_queue');
-            await m.createTable(syncQueueEntries);
-          }
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(syncMetadataEntries);
+      }
+    },
+  );
 }

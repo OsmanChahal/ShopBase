@@ -35,9 +35,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
   void initState() {
     super.initState();
     final business = ref.read(currentBusinessProvider);
-    _businessNameController = TextEditingController(
-      text: business?.name ?? '',
-    );
+    _businessNameController = TextEditingController(text: business?.name ?? '');
     _rateController = TextEditingController(
       text: business?.currencyRate.toStringAsFixed(0) ?? '',
     );
@@ -49,7 +47,9 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
         _customBusinessTypeController = TextEditingController();
       } else {
         _selectedBusinessType = kOtherBusinessType;
-        _customBusinessTypeController = TextEditingController(text: currentType);
+        _customBusinessTypeController = TextEditingController(
+          text: currentType,
+        );
       }
     } else {
       _selectedBusinessType = null;
@@ -133,7 +133,9 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     if (_selectedBusinessType == kOtherBusinessType) {
       final customText = _customBusinessTypeController.text.trim();
       if (customText.isEmpty) {
-        setState(() => _businessTypeErrorText = 'Please specify your business type');
+        setState(
+          () => _businessTypeErrorText = 'Please specify your business type',
+        );
         return;
       }
       typeToSave = customText;
@@ -307,407 +309,426 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
             child: OfflineScopeBoundary(
               child: SingleChildScrollView(
                 padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 1. Subscription Plan Section
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryPurple.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.primaryPurple.withValues(alpha: 0.15),
+                  left: 24,
+                  right: 24,
+                  top: 20,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Subscription Plan Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPurple.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.primaryPurple.withValues(
+                            alpha: 0.15,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.workspace_premium_rounded,
-                              size: 22,
-                              color: AppColors.primaryPurple,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Current Plan',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textGray,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.workspace_premium_rounded,
+                                size: 22,
                                 color: AppColors.primaryPurple,
-                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Text(
-                                'Free Trial',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                              const SizedBox(width: 8),
+                              Text(
+                                'Current Plan',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.textGray,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryPurple,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Free Trial',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // 2. See other plans button
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _showComingSoon,
+                              icon: const Icon(Icons.stars_outlined, size: 18),
+                              label: const Text('See other plans'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // 2. See other plans button
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _showComingSoon,
-                            icon: const Icon(Icons.stars_outlined, size: 18),
-                            label: const Text('See other plans'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // 3. Edit Business Profile Section
-                  Text(
-                    'BUSINESS PROFILE',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.textGray,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.baseWhite,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.borderGray),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _businessNameController,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: InputDecoration(
-                            labelText: 'Business Name',
-                            prefixIcon: const Icon(Icons.storefront_outlined),
-                            errorText: _nameErrorText,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isSavingName ? null : _saveBusinessName,
-                            child: _isSavingName
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Save Business Name'),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Divider(height: 1),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedBusinessType,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: 'Business Type',
-                            prefixIcon: const Icon(Icons.category_outlined),
-                            errorText: _businessTypeErrorText,
-                          ),
-                          items: [
-                            ...kBusinessTypes.map(
-                              (type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type, overflow: TextOverflow.ellipsis),
-                              ),
-                            ),
-                            const DropdownMenuItem(
-                              value: kOtherBusinessType,
-                              child: Text(kOtherBusinessType),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedBusinessType = value;
-                              _businessTypeErrorText = null;
-                            });
-                          },
-                        ),
-                        if (_selectedBusinessType == kOtherBusinessType) ...[
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _customBusinessTypeController,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(
-                              labelText: 'Specify Business Type',
-                              prefixIcon: Icon(Icons.edit_outlined),
-                              hintText: 'e.g. Pet Salon, Antique Shop',
-                            ),
-                            onChanged: (_) {
-                              if (_businessTypeErrorText != null) {
-                                setState(() => _businessTypeErrorText = null);
-                              }
-                            },
                           ),
                         ],
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isSavingType ? null : _saveBusinessType,
-                            child: _isSavingType
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Save Business Type'),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  // ── MANAGE STAFF ────────────────────────────────────
-                  Text(
-                    'MANAGE STAFF',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.textGray,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w600,
+                    // 3. Edit Business Profile Section
+                    Text(
+                      'BUSINESS PROFILE',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.textGray,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.baseWhite,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.borderGray),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.people_outline,
-                                size: 20, color: AppColors.primaryPurple),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Staff Accounts',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.baseWhite,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.borderGray),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _businessNameController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: InputDecoration(
+                              labelText: 'Business Name',
+                              prefixIcon: const Icon(Icons.storefront_outlined),
+                              errorText: _nameErrorText,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Invite and manage staff members for this business.',
-                          style: TextStyle(
-                            color: AppColors.textGray,
-                            fontSize: 13,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ManageStaffScreen(),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isSavingName
+                                  ? null
+                                  : _saveBusinessName,
+                              child: _isSavingName
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Save Business Name'),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedBusinessType,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Business Type',
+                              prefixIcon: const Icon(Icons.category_outlined),
+                              errorText: _businessTypeErrorText,
+                            ),
+                            items: [
+                              ...kBusinessTypes.map(
+                                (type) => DropdownMenuItem(
+                                  value: type,
+                                  child: Text(
+                                    type,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              );
-                            },
-                            icon: const Icon(Icons.group_add_outlined, size: 18),
-                            label: const Text('Manage Staff'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // ── MANAGE TAGS ─────────────────────────────────────
-                  Text(
-                    'MANAGE TAGS',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.textGray,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _ManageTagsSection(),
-
-                  const SizedBox(height: 24),
-
-                  // 4. Currency Rate Editor Section
-                  Text(
-                    'CURRENCY & RATE',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.textGray,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.baseWhite,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.borderGray),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.currency_exchange_rounded,
-                              size: 20,
-                              color: AppColors.primaryPurple,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Exchange Rate (LBP per USD)',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
                               ),
+                              const DropdownMenuItem(
+                                value: kOtherBusinessType,
+                                child: Text(kOtherBusinessType),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedBusinessType = value;
+                                _businessTypeErrorText = null;
+                              });
+                            },
+                          ),
+                          if (_selectedBusinessType == kOtherBusinessType) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _customBusinessTypeController,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                labelText: 'Specify Business Type',
+                                prefixIcon: Icon(Icons.edit_outlined),
+                                hintText: 'e.g. Pet Salon, Antique Shop',
+                              ),
+                              onChanged: (_) {
+                                if (_businessTypeErrorText != null) {
+                                  setState(() => _businessTypeErrorText = null);
+                                }
+                              },
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const SizedBox(width: 28),
-                            Icon(
-                              Icons.access_time,
-                              size: 14,
-                              color: AppColors.textGray,
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isSavingType
+                                  ? null
+                                  : _saveBusinessType,
+                              child: _isSavingType
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Save Business Type'),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Last updated: ${_formatUpdatedAt(business?.currencyRateUpdatedAt)}',
-                              style: theme.textTheme.bodySmall?.copyWith(
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // ── MANAGE STAFF ────────────────────────────────────
+                    Text(
+                      'MANAGE STAFF',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.textGray,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.baseWhite,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.borderGray),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.people_outline,
+                                size: 20,
+                                color: AppColors.primaryPurple,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Staff Accounts',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Invite and manage staff members for this business.',
+                            style: TextStyle(
+                              color: AppColors.textGray,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ManageStaffScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.group_add_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Manage Staff'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // ── MANAGE TAGS ─────────────────────────────────────
+                    Text(
+                      'MANAGE TAGS',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.textGray,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _ManageTagsSection(),
+
+                    const SizedBox(height: 24),
+
+                    // 4. Currency Rate Editor Section
+                    Text(
+                      'CURRENCY & RATE',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.textGray,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.baseWhite,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.borderGray),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.currency_exchange_rounded,
+                                size: 20,
+                                color: AppColors.primaryPurple,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Exchange Rate (LBP per USD)',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const SizedBox(width: 28),
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color: AppColors.textGray,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Last updated: ${_formatUpdatedAt(business?.currencyRateUpdatedAt)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textGray,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _rateController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.]'),
+                              ),
+                            ],
+                            decoration: InputDecoration(
+                              prefixText: 'LBP ',
+                              prefixStyle: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.accentDark,
+                              ),
+                              hintText: 'e.g. 89500',
+                              errorText: _rateErrorText,
+                              suffixText: '= 1 USD',
+                              suffixStyle: theme.textTheme.bodySmall?.copyWith(
                                 color: AppColors.textGray,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: _rateController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[\d.]'),
-                            ),
-                          ],
-                          decoration: InputDecoration(
-                            prefixText: 'LBP ',
-                            prefixStyle: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.accentDark,
-                            ),
-                            hintText: 'e.g. 89500',
-                            errorText: _rateErrorText,
-                            suffixText: '= 1 USD',
-                            suffixStyle: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textGray,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isSavingRate ? null : _saveRate,
+                              child: _isSavingRate
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Save Exchange Rate'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isSavingRate ? null : _saveRate,
-                            child: _isSavingRate
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Save Exchange Rate'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 12),
-
-                  // 5. Sign Out Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _confirmSignOut(context),
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Sign Out'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.statusError,
-                        side: const BorderSide(color: AppColors.statusError),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 28),
+                    const Divider(),
+                    const SizedBox(height: 12),
+
+                    // 5. Sign Out Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _confirmSignOut(context),
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Sign Out'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.statusError,
+                          side: const BorderSide(color: AppColors.statusError),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }
 
 // ── Manage Tags Section ───────────────────────────────────────────────────────
@@ -770,9 +791,7 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.statusError,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.statusError),
             child: const Text('Delete'),
           ),
         ],
@@ -821,8 +840,11 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
         children: [
           Row(
             children: [
-              const Icon(Icons.label_outline_rounded,
-                  size: 20, color: AppColors.primaryPurple),
+              const Icon(
+                Icons.label_outline_rounded,
+                size: 20,
+                color: AppColors.primaryPurple,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Tag Library',
@@ -844,7 +866,10 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
             ),
             error: (err, _) => Text(
               'Failed to load tags: $err',
-              style: const TextStyle(color: AppColors.statusError, fontSize: 13),
+              style: const TextStyle(
+                color: AppColors.statusError,
+                fontSize: 13,
+              ),
             ),
             data: (tags) {
               if (tags.isEmpty) {
@@ -852,8 +877,11 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
-                      Icon(Icons.label_off_outlined,
-                          size: 18, color: AppColors.inactiveGray),
+                      Icon(
+                        Icons.label_off_outlined,
+                        size: 18,
+                        color: AppColors.inactiveGray,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'No tags yet — add your first one',
@@ -878,8 +906,9 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
                       fontSize: 13,
                       color: AppColors.primaryPurple,
                     ),
-                    backgroundColor:
-                        AppColors.primaryPurple.withValues(alpha: 0.06),
+                    backgroundColor: AppColors.primaryPurple.withValues(
+                      alpha: 0.06,
+                    ),
                     side: BorderSide(
                       color: AppColors.primaryPurple.withValues(alpha: 0.2),
                     ),
