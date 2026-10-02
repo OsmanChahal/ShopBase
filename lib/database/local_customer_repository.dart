@@ -39,6 +39,42 @@ class LocalCustomerRepository {
     return (result.read(count) ?? 0) > 0;
   }
 
+  /// Update an existing customer. Enqueues a customer_upsert with the
+  /// full updated record (customers have no delta-style fields like
+  /// products' quantity, so a plain full overwrite is safe here).
+  Future<LocalCustomer> updateCustomer({
+    required String id,
+    required String businessId,
+    required String name,
+    String? phone,
+  }) async {
+    await (_db.update(_db.localCustomers)..where((t) => t.id.equals(id))).write(
+      LocalCustomersCompanion(name: Value(name), phone: Value(phone)),
+    );
+
+    await _syncQueue.enqueue(
+      operationType: 'customer_upsert',
+      payloadJson: jsonEncode({
+        'id': id,
+        'business_id': businessId,
+        'name': name,
+        'phone': phone,
+      }),
+    );
+
+    return (await getCustomerById(id))!;
+  }
+
+  /// Delete a customer. Enqueues a customer_delete operation.
+  Future<void> deleteCustomer(String id) async {
+    await (_db.delete(_db.localCustomers)..where((t) => t.id.equals(id))).go();
+
+    await _syncQueue.enqueue(
+      operationType: 'customer_delete',
+      payloadJson: jsonEncode({'customer_id': id}),
+    );
+  }
+
   /// Add a new customer locally. Generates a UUID, inserts into local DB,
   /// and enqueues a customer_upsert operation.
   Future<LocalCustomer> addCustomer({

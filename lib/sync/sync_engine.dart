@@ -52,6 +52,9 @@ class SyncEngine {
           case 'customer_upsert':
             await _handleCustomerUpsert(payload);
             break;
+          case 'customer_delete':
+            await _handleCustomerDelete(payload);
+            break;
           default:
             dev.log(
               '[SyncEngine Push] Unknown operation type: ${entry.operationType}',
@@ -83,9 +86,14 @@ class SyncEngine {
   Future<void> _handleStockAdjustment(Map<String, dynamic> payload) async {
     final productId = payload['product_id'] as String;
     final delta = payload['delta'] as int;
+    final operationId = payload['operation_id'] as String;
     await _supabase.rpc(
       'adjust_stock',
-      params: {'p_product_id': productId, 'p_delta': delta},
+      params: {
+        'p_product_id': productId,
+        'p_delta': delta,
+        'p_operation_id': operationId,
+      },
     );
   }
 
@@ -107,15 +115,27 @@ class SyncEngine {
     for (final delta in stockDeltas) {
       final productId = delta['product_id'] as String;
       final qtyDelta = delta['delta'] as int;
+      final operationId = delta['operation_id'] as String;
       await _supabase.rpc(
         'adjust_stock',
-        params: {'p_product_id': productId, 'p_delta': qtyDelta},
+        params: {
+          'p_product_id': productId,
+          'p_delta': qtyDelta,
+          'p_operation_id': operationId,
+        },
       );
     }
   }
 
   Future<void> _handleCustomerUpsert(Map<String, dynamic> payload) async {
     await _supabase.from('customers').upsert(payload);
+  }
+
+  Future<void> _handleCustomerDelete(Map<String, dynamic> payload) async {
+    final customerId = payload['customer_id'] ?? payload['id'];
+    if (customerId != null) {
+      await _supabase.from('customers').delete().eq('id', customerId);
+    }
   }
 
   // ── PULL PHASE ─────────────────────────────────────────────────────────────

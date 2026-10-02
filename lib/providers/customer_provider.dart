@@ -13,8 +13,9 @@ final customerServiceProvider = Provider<CustomerService>((ref) {
 });
 
 /// Provides the LocalCustomerRepository instance.
-final localCustomerRepositoryProvider =
-    Provider<LocalCustomerRepository>((ref) {
+final localCustomerRepositoryProvider = Provider<LocalCustomerRepository>((
+  ref,
+) {
   return LocalCustomerRepository(
     ref.watch(appDatabaseProvider),
     ref.watch(syncQueueRepositoryProvider),
@@ -36,17 +37,20 @@ final customerListProvider = FutureProvider<List<Customer>>((ref) async {
 final customerSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Filtered customer list provider sharing search-as-you-type logic.
-final filteredCustomerListProvider =
-    Provider<AsyncValue<List<Customer>>>((ref) {
+final filteredCustomerListProvider = Provider<AsyncValue<List<Customer>>>((
+  ref,
+) {
   final customersAsync = ref.watch(customerListProvider);
   final query = ref.watch(customerSearchQueryProvider).trim().toLowerCase();
 
   return customersAsync.whenData((customers) {
     if (query.isEmpty) return customers;
     return customers
-        .where((c) =>
-            c.name.toLowerCase().contains(query) ||
-            (c.phone != null && c.phone!.contains(query)))
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(query) ||
+              (c.phone != null && c.phone!.contains(query)),
+        )
         .toList();
   });
 });
@@ -61,7 +65,6 @@ class CustomerActions {
   LocalCustomerRepository get _repo =>
       ref.read(localCustomerRepositoryProvider);
 
-  /// Add a new customer locally (used from POS inline customer creation).
   Future<Customer> addCustomer({
     required String businessId,
     required String name,
@@ -74,6 +77,26 @@ class CustomerActions {
     );
     ref.invalidate(customerListProvider);
     return _localCustomerToModel(result);
+  }
+
+  Future<void> updateCustomer({
+    required String id,
+    required String businessId,
+    required String name,
+    String? phone,
+  }) async {
+    await _repo.updateCustomer(
+      id: id,
+      businessId: businessId,
+      name: name,
+      phone: phone,
+    );
+    ref.invalidate(customerListProvider);
+  }
+
+  Future<void> deleteCustomer(String id) async {
+    await _repo.deleteCustomer(id);
+    ref.invalidate(customerListProvider);
   }
 }
 

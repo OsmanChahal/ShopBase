@@ -70,7 +70,6 @@ class LocalProductRepository {
 
     await _db.into(_db.localProducts).insert(companion);
 
-    // Enqueue for sync
     await _syncQueue.enqueue(
       operationType: 'product_upsert',
       payloadJson: jsonEncode({
@@ -81,10 +80,23 @@ class LocalProductRepository {
         'category': category,
         'cost_price_usd': costPriceUsd,
         'sell_price_usd': sellPriceUsd,
-        'quantity': quantity,
         'low_stock_threshold': lowStockThreshold,
       }),
     );
+
+    // The initial stock count has to travel through the same delta
+    // mechanism as every other stock change — product_upsert always
+    // strips quantity, so it never reaches Supabase otherwise.
+    if (quantity != 0) {
+      await _syncQueue.enqueue(
+        operationType: 'stock_adjustment',
+        payloadJson: jsonEncode({
+          'product_id': id,
+          'delta': quantity,
+          'operation_id': _uuid.v4(),
+        }),
+      );
+    }
 
     return (await getProductById(id))!;
   }
@@ -161,10 +173,15 @@ class LocalProductRepository {
       LocalProductsCompanion(quantity: Value(newQty), updatedAt: Value(now)),
     );
 
-    // Enqueue with DELTA, not final value
+    // Enqueue with DELTA, not final value — plus a unique operation ID so
+    // the server can safely ignore a duplicate/retried apply.
     await _syncQueue.enqueue(
       operationType: 'stock_adjustment',
-      payloadJson: jsonEncode({'product_id': id, 'delta': delta}),
+      payloadJson: jsonEncode({
+        'product_id': id,
+        'delta': delta,
+        'operation_id': _uuid.v4(),
+      }),
     );
 
     return (await getProductById(id))!;

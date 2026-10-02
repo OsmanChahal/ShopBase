@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,13 +12,9 @@ import '../theme/app_colors.dart';
 import 'connectivity_service.dart';
 import 'sync_engine.dart';
 
-/// Reactive provider for online/offline connectivity state.
 final isOnlineProvider = StateProvider<bool>((ref) => true);
-
-/// Reactive provider indicating whether a sync push/pull cycle is actively running.
 final isSyncingProvider = StateProvider<bool>((ref) => false);
 
-/// Provides the SyncEngine singleton.
 final syncEngineProvider = Provider<SyncEngine>((ref) {
   return SyncEngine(
     ref.watch(syncQueueRepositoryProvider),
@@ -26,23 +23,26 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
   );
 });
 
-/// Provides the ConnectivityService singleton.
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
   final service = ConnectivityService();
   ref.onDispose(() => service.stopListening());
   return service;
 });
 
-/// Orchestrator that ties connectivity detection to the sync engine.
-/// Call `initialize()` once after the app is ready (initial pull done).
 class SyncOrchestrator {
   final Ref _ref;
   bool _initialized = false;
+  String? _businessId;
+
+  StreamSubscription<void>? _queueChangeSubscription;
+  Timer? _debounceTimer;
+  Timer? _periodicTimer;
+
+  bool _syncRunning = false;
+  bool _syncQueuedAgain = false;
 
   SyncOrchestrator(this._ref);
 
-  /// Initialize: start listening for connectivity changes and trigger
-  /// an initial sync if there are pending entries and we're online.
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
@@ -51,24 +51,42 @@ class SyncOrchestrator {
     if (business == null) return;
 
     final businessId = business.id;
+    _businessId = businessId;
     final connectivityService = _ref.read(connectivityServiceProvider);
     final queueRepo = _ref.read(syncQueueRepositoryProvider);
 
-    // Synchronize reactive isOnlineProvider with connectivity service
     connectivityService.onConnectivityChange = (isOnline) {
       _ref.read(isOnlineProvider.notifier).state = isOnline;
     };
 
-    // Set up the offline→online callback
     connectivityService.onOnline = () async {
       dev.log('[SyncOrchestrator] Online transition — triggering sync');
       await runSync(businessId: businessId, showToast: true);
     };
 
-    // Start listening for connectivity changes
     connectivityService.startListening();
 
-    // Startup sync: if online and there are pending/failed entries, sync now
+    // NEW: listen for local writes and trigger a short-debounced sync,
+    // so changes reach Supabase within about a second instead of waiting
+    // for the app to close/reopen or the connection to drop and return.
+    _queueChangeSubscription = queueRepo.onQueueChanged.listen((_) {
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+        if (_ref.read(isOnlineProvider)) {
+          runSync(
+            businessId: businessId,
+            showToast: false,
+            trackSyncingState: false,
+          );
+        }
+      });
+    });
+
+    // NEW: periodic pull while the app is open, so other devices' changes
+    // (e.g. the owner adding a product) reach this device without needing
+    // a manual reconnect or app restart.
+    _startPeriodicSync(businessId);
+
     final isOnline = await connectivityService.checkConnectivity();
     _ref.read(isOnlineProvider.notifier).state = isOnline;
 
@@ -78,7 +96,6 @@ class SyncOrchestrator {
         dev.log('[SyncOrchestrator] Startup: pending entries found, syncing');
         await runSync(businessId: businessId, showToast: true);
       } else {
-        // Even if no pending pushes, do a pull to get any remote changes silently
         dev.log('[SyncOrchestrator] Startup: no pending entries, pulling only');
         await runSync(businessId: businessId, showToast: false);
       }
@@ -87,15 +104,44 @@ class SyncOrchestrator {
     }
   }
 
-  /// Run a full sync pass (push + pull) with status management and optional user notification.
+  void _startPeriodicSync(String businessId) {
+    _periodicTimer?.cancel();
+    _periodicTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (_ref.read(isOnlineProvider)) {
+        runSync(businessId: businessId, showToast: false);
+      }
+    });
+  }
+
+  /// Call when the app returns to the foreground (wired from app.dart).
+  void onAppResumed() {
+    if (_businessId == null) return;
+    runSync(businessId: _businessId!, showToast: false);
+  }
+
+  /// Call when the app goes to the background — pauses the periodic timer
+  /// so it's not running uselessly while the app isn't visible.
+  void onAppPaused() {
+    _periodicTimer?.cancel();
+  }
+
   Future<void> runSync({
     required String businessId,
     bool showToast = true,
+    bool trackSyncingState = true,
   }) async {
+    // NEW: prevent overlapping sync runs — if one is already in progress,
+    // just remember to run once more right after it finishes.
+    if (_syncRunning) {
+      _syncQueuedAgain = true;
+      return;
+    }
+    _syncRunning = true;
+
     final syncEngine = _ref.read(syncEngineProvider);
     final queueRepo = _ref.read(syncQueueRepositoryProvider);
 
-    _ref.read(isSyncingProvider.notifier).state = true;
+    if (trackSyncingState) _ref.read(isSyncingProvider.notifier).state = true;
 
     try {
       await syncEngine.sync(businessId);
@@ -115,7 +161,17 @@ class SyncOrchestrator {
         _showSyncPendingToast();
       }
     } finally {
-      _ref.read(isSyncingProvider.notifier).state = false;
+      if (trackSyncingState)
+        _ref.read(isSyncingProvider.notifier).state = false;
+      _syncRunning = false;
+      if (_syncQueuedAgain) {
+        _syncQueuedAgain = false;
+        runSync(
+          businessId: businessId,
+          showToast: false,
+          trackSyncingState: false,
+        );
+      }
     }
   }
 
@@ -171,15 +227,21 @@ class SyncOrchestrator {
     );
   }
 
-  /// Invalidate UI providers so screens pick up synced data.
   void _invalidateProviders() {
     _ref.invalidate(productListProvider);
     _ref.invalidate(customerListProvider);
     _ref.invalidate(salesListProvider);
   }
+
+  void dispose() {
+    _queueChangeSubscription?.cancel();
+    _debounceTimer?.cancel();
+    _periodicTimer?.cancel();
+  }
 }
 
-/// Provides the SyncOrchestrator singleton.
 final syncOrchestratorProvider = Provider<SyncOrchestrator>((ref) {
-  return SyncOrchestrator(ref);
+  final orchestrator = SyncOrchestrator(ref);
+  ref.onDispose(() => orchestrator.dispose());
+  return orchestrator;
 });

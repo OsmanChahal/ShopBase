@@ -4,7 +4,6 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import '../models/customer.dart';
 import '../providers/auth_provider.dart';
 import '../providers/customer_provider.dart';
-import '../services/customer_service.dart';
 import '../widgets/loading_overlay.dart';
 
 class CustomerFormScreen extends ConsumerStatefulWidget {
@@ -59,34 +58,32 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     setState(() => _isLoading = true);
 
     // If phone field is empty, set phone to null
-    final phoneToSave = (_completePhoneNumber != null && _completePhoneNumber!.trim().isNotEmpty)
+    final phoneToSave =
+        (_completePhoneNumber != null &&
+            _completePhoneNumber!.trim().isNotEmpty)
         ? _completePhoneNumber!.trim()
         : null;
 
     try {
-      // CRM customer form uses CustomerService directly (online-only).
-      // POS has its own lightweight inline creation that writes to local DB.
-      final service = CustomerService(ref.read(supabaseClientProvider));
+      // Now uses the same local-first path as POS's inline customer
+      // creation, so the customer list (which only reads local data)
+      // picks it up immediately instead of waiting for a full pull.
+      final actions = ref.read(customerActionsProvider);
 
       if (_isEditing) {
-        final updated = widget.customer!.copyWith(
-          name: _nameController.text.trim(),
-          phone: phoneToSave,
-        );
-        await service.updateCustomer(updated);
-      } else {
-        final customer = Customer(
-          id: '',
+        await actions.updateCustomer(
+          id: widget.customer!.id,
           businessId: business.id,
           name: _nameController.text.trim(),
           phone: phoneToSave,
-          createdAt: DateTime.now(),
         );
-        await service.addCustomer(customer);
+      } else {
+        await actions.addCustomer(
+          businessId: business.id,
+          name: _nameController.text.trim(),
+          phone: phoneToSave,
+        );
       }
-
-      // Refresh the customer list provider so local cache stays in sync
-      ref.invalidate(customerListProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -132,17 +129,14 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // CRM deletion uses CustomerService directly (online-only)
-      final service = CustomerService(ref.read(supabaseClientProvider));
-      await service.deleteCustomer(widget.customer!.id);
-
-      // Refresh the customer list provider
-      ref.invalidate(customerListProvider);
+      await ref
+          .read(customerActionsProvider)
+          .deleteCustomer(widget.customer!.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Customer deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Customer deleted')));
         Navigator.of(context).pop(true);
       }
     } catch (e) {

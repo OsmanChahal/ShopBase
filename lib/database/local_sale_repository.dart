@@ -137,7 +137,13 @@ class LocalSaleRepository {
         },
         'items': itemsPayload,
         'stock_deltas': stockDeltas
-            .map((d) => {'product_id': d['productId'], 'delta': d['delta']})
+            .map(
+              (d) => {
+                'product_id': d['productId'],
+                'delta': d['delta'],
+                'operation_id': _uuid.v4(),
+              },
+            )
             .toList(),
       }),
     );

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'app_database.dart';
@@ -5,13 +6,17 @@ import 'app_database.dart';
 const _uuid = Uuid();
 
 /// Enqueues operations into the sync_queue table.
-/// Every local write calls this to record the operation for session 2's sync engine.
+/// Every local write calls this to record the operation for the sync engine.
 class SyncQueueRepository {
   final AppDatabase _db;
+  final _changeController = StreamController<void>.broadcast();
 
   SyncQueueRepository(this._db);
 
-  /// Enqueue a sync operation with the given type and JSON payload.
+  /// Fires every time a new operation is enqueued — the sync orchestrator
+  /// listens to this to trigger an immediate (debounced) sync.
+  Stream<void> get onQueueChanged => _changeController.stream;
+
   Future<void> enqueue({
     required String operationType,
     required String payloadJson,
@@ -26,9 +31,9 @@ class SyncQueueRepository {
             createdAt: DateTime.now().toUtc(),
           ),
         );
+    _changeController.add(null);
   }
 
-  /// Get the count of pending operations (useful for debugging).
   Future<int> getPendingCount() async {
     final count = countAll();
     final query = _db.selectOnly(_db.syncQueueEntries)
@@ -38,7 +43,6 @@ class SyncQueueRepository {
     return result.read(count) ?? 0;
   }
 
-  /// Get all pending entries (for debug inspection).
   Future<List<SyncQueueEntry>> getAllPending() async {
     return (_db.select(_db.syncQueueEntries)
           ..where((t) => t.status.equals('pending'))
@@ -46,7 +50,6 @@ class SyncQueueRepository {
         .get();
   }
 
-  /// Get all entries ready to be processed by the sunc engine
   Future<List<SyncQueueEntry>> getProcessableEntries() async {
     return (_db.select(_db.syncQueueEntries)
           ..where((t) => t.status.isIn(['pending', 'failed']))
@@ -54,7 +57,6 @@ class SyncQueueRepository {
         .get();
   }
 
-  /// Check if there are pending or failed operations awaiting sync.
   Future<bool> hasPendingOrFailed() async {
     final count = countAll();
     final query = _db.selectOnly(_db.syncQueueEntries)
@@ -64,7 +66,6 @@ class SyncQueueRepository {
     return (result.read(count) ?? 0) > 0;
   }
 
-  /// Check if there are any failed operations awaiting retry.
   Future<bool> hasFailedEntries() async {
     final count = countAll();
     final query = _db.selectOnly(_db.syncQueueEntries)
@@ -74,7 +75,6 @@ class SyncQueueRepository {
     return (result.read(count) ?? 0) > 0;
   }
 
-  /// Get the count of failed operations.
   Future<int> getFailedCount() async {
     final count = countAll();
     final query = _db.selectOnly(_db.syncQueueEntries)
@@ -84,13 +84,11 @@ class SyncQueueRepository {
     return result.read(count) ?? 0;
   }
 
-  /// Mark the record status synced
   Future<void> markSynced(String id) async {
     await (_db.update(_db.syncQueueEntries)..where((t) => t.id.equals(id)))
         .write(const SyncQueueEntriesCompanion(status: Value('synced')));
   }
 
-  /// Mark the record status failed with error message and increment retry count
   Future<void> markFailed(String id, String error) async {
     final entry = await (_db.select(
       _db.syncQueueEntries,
@@ -105,5 +103,9 @@ class SyncQueueRepository {
         lastError: Value(error),
       ),
     );
+  }
+
+  void dispose() {
+    _changeController.close();
   }
 }
