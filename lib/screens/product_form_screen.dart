@@ -30,6 +30,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _isLoading = false;
   bool get _isEditing => widget.product != null;
 
+  // Dropdown selection state for the business-owned category list.
+  // _categoryController is reused as the "type a new category" input in
+  // BOTH the empty-state (no categories exist yet) and the "+ Create new"
+  // reveal case — only one of those two is ever visible at once.
+  String? _selectedCategory;
+  static const String _createNewCategorySentinel = '__create_new_category__';
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +44,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _nameController = TextEditingController(text: p?.name ?? '');
     _skuController = TextEditingController(text: p?.sku ?? '');
     _categoryController = TextEditingController(text: p?.category ?? '');
+    _selectedCategory = p?.category;
     _costPriceController = TextEditingController(
       text: p != null ? p.costPriceUsd.toStringAsFixed(2) : '',
     );
@@ -92,6 +100,43 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return null;
   }
 
+  /// Resolves the final category value to save, handling the
+  /// case-insensitive dedup: if the owner typed a "new" category that
+  /// only differs in casing from one that already exists, reuse the
+  /// existing casing instead of creating a near-duplicate.
+  String? _resolveCategoryToSave() {
+    final categories = ref.read(productCategoryProvider).valueOrNull ?? [];
+
+    // No categories exist yet, or none have loaded — whatever's typed in
+    // the plain text field is the answer.
+    if (categories.isEmpty) {
+      final typed = _categoryController.text.trim();
+      return typed.isEmpty ? null : typed;
+    }
+
+    // An existing category was picked directly from the dropdown.
+    if (_selectedCategory != null &&
+        _selectedCategory != _createNewCategorySentinel) {
+      return _selectedCategory;
+    }
+
+    // "+ Create new category" was chosen — check for a case-insensitive
+    // match before treating it as genuinely new.
+    if (_selectedCategory == _createNewCategorySentinel) {
+      final typed = _categoryController.text.trim();
+      if (typed.isEmpty) return null;
+
+      for (final existing in categories) {
+        if (existing.toLowerCase() == typed.toLowerCase()) {
+          return existing; // reuse existing casing
+        }
+      }
+      return typed; // genuinely new
+    }
+
+    return null; // nothing selected — category is optional
+  }
+
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -105,6 +150,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     try {
       final actions = ref.read(productActionsProvider);
+      final resolvedCategory = _resolveCategoryToSave();
 
       if (_isEditing) {
         // When editing, quantity is not changed through this form —
@@ -116,9 +162,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           sku: _skuController.text.trim().isEmpty
               ? null
               : _skuController.text.trim(),
-          category: _categoryController.text.trim().isEmpty
-              ? null
-              : _categoryController.text.trim(),
+          category: resolvedCategory,
           costPriceUsd: double.parse(_costPriceController.text.trim()),
           sellPriceUsd: double.parse(_sellPriceController.text.trim()),
           quantity: widget.product!.quantity, // preserve current stock
@@ -134,9 +178,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           sku: _skuController.text.trim().isEmpty
               ? null
               : _skuController.text.trim(),
-          category: _categoryController.text.trim().isEmpty
-              ? null
-              : _categoryController.text.trim(),
+          category: resolvedCategory,
           costPriceUsd: double.parse(_costPriceController.text.trim()),
           sellPriceUsd: double.parse(_sellPriceController.text.trim()),
           quantity: int.parse(_quantityController.text.trim()),
@@ -233,9 +275,61 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     });
   }
 
+  /// Builds the category field: a plain text field if this business has
+  /// no categories yet, or a dropdown (plus "+ Create new category") once
+  /// it does.
+  Widget _buildCategoryField(List<String> categories) {
+    if (categories.isEmpty) {
+      return TextFormField(
+        controller: _categoryController,
+        textInputAction: TextInputAction.next,
+        decoration: const InputDecoration(
+          labelText: 'Category',
+          prefixIcon: Icon(Icons.category_outlined),
+        ),
+      );
+    }
+
+    // Dropdown's `value` must exactly match one of its `items`, or Flutter
+    // throws — guard against a stale/mismatched selection defensively.
+    final dropdownValue =
+        (categories.contains(_selectedCategory) ||
+            _selectedCategory == _createNewCategorySentinel)
+        ? _selectedCategory
+        : null;
+
+    return DropdownButtonFormField<String>(
+      initialValue: dropdownValue,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Category',
+        prefixIcon: Icon(Icons.category_outlined),
+      ),
+      items: [
+        ...categories.map(
+          (c) => DropdownMenuItem(
+            value: c,
+            child: Text(c, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        const DropdownMenuItem(
+          value: _createNewCategorySentinel,
+          child: Text('+ Create new category'),
+        ),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedCategory = value);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final categories = ref.watch(productCategoryProvider).valueOrNull ?? [];
+    final showNewCategoryField =
+        categories.isNotEmpty &&
+        _selectedCategory == _createNewCategorySentinel;
 
     return Scaffold(
       appBar: AppBar(
@@ -278,6 +372,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
                 // SKU and Category row
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: TextFormField(
@@ -290,18 +385,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _categoryController,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          prefixIcon: Icon(Icons.category_outlined),
-                        ),
-                      ),
-                    ),
+                    Expanded(child: _buildCategoryField(categories)),
                   ],
                 ),
+
+                // "+ Create new category" reveal field
+                if (showNewCategoryField) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _categoryController,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'New category name',
+                      hintText: 'e.g. Snacks, Beverages',
+                      prefixIcon: Icon(Icons.add_circle_outline),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 24),
 
                 // Pricing section

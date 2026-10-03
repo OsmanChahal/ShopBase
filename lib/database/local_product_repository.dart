@@ -39,6 +39,28 @@ class LocalProductRepository {
     return (result.read(count) ?? 0) > 0;
   }
 
+  /// Returns the distinct, non-empty categories already used by this
+  /// business's products, sorted alphabetically. This is what makes the
+  /// category list "grow" organically instead of coming from a fixed list.
+  Future<List<String>> getDistinctCategories(String businessId) async {
+    final query = _db.selectOnly(_db.localProducts, distinct: true)
+      ..addColumns([_db.localProducts.category])
+      ..where(
+        _db.localProducts.businessId.equals(businessId) &
+            _db.localProducts.category.isNotNull(),
+      )
+      ..orderBy([OrderingTerm.asc(_db.localProducts.category)]);
+
+    final rows = await query.get();
+
+    return rows
+        .map((row) => row.read(_db.localProducts.category))
+        .whereType<String>()
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+  }
+
   /// Add a new product. Generates a UUID, inserts into local DB,
   /// and enqueues a product_upsert operation.
   Future<LocalProduct> addProduct({

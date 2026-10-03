@@ -32,6 +32,16 @@ final productListProvider = FutureProvider<List<Product>>((ref) async {
   return localProducts.map(_localProductToModel).toList();
 });
 
+/// pROVIDER FOR THE CATEGORIES LIST
+final productCategoryProvider = FutureProvider<List<String>>((ref) async {
+  final business = ref.watch(currentBusinessProvider);
+  if (business == null) return [];
+
+  final repo = ref.watch(localProductRepositoryProvider);
+  final localCategories = await repo.getDistinctCategories(business.id);
+  return localCategories.toList();
+});
+
 /// Shared search query state for product search across POS & Inventory screens.
 final productSearchQueryProvider = StateProvider<String>((ref) => '');
 
