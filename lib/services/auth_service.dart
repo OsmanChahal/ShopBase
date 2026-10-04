@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/business.dart';
+import '../models/business_member.dart';
 import 'package:uuid/uuid.dart';
 
 class AuthService {
@@ -134,40 +135,74 @@ class AuthService {
   /// Stream of auth state changes.
   Stream<AuthState> get onAuthStateChange => _client.auth.onAuthStateChange;
 
-  /// Fetch the business linked to the given user ID.
-  /// Returns null if no business is found.
-  Future<Business?> fetchBusiness(String userId) async {
+  /// Fetch the business and membership linked to the given user ID.
+  /// Returns null if no business/member is found.
+  Future<({Business business, BusinessMember member})?> fetchMemberAndBusiness(String userId) async {
     try {
-      final response = await _client
-          .from('businesses')
+      // 1. Fetch business_members row for this user
+      final memberResponse = await _client
+          .from('business_members')
           .select()
-          .eq('owner_id', userId)
+          .eq('user_id', userId)
+          .eq('status', 'active')
           .maybeSingle();
 
-      if (response == null) {
-        final businessMembers = await _client
-            .from('business_members')
-            .select()
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .maybeSingle();
-        if (businessMembers == null) {
-          return null;
-        }
-        final businessResponse = await _client
+      if (memberResponse == null) {
+        // Fallback: check if user is owner of a business
+        final ownerBusiness = await _client
             .from('businesses')
             .select()
-            .eq('id', businessMembers['business_id'])
+            .eq('owner_id', userId)
             .maybeSingle();
-        if (businessResponse == null) {
-          return null;
-        }
-        return Business.fromJson(businessResponse);
+
+        if (ownerBusiness == null) return null;
+
+        final business = Business.fromJson(ownerBusiness);
+        final syntheticMember = BusinessMember(
+          id: 'owner_$userId',
+          businessId: business.id,
+          userId: userId,
+          role: 'admin',
+          permissions: {'all': true},
+          status: 'active',
+        );
+        return (business: business, member: syntheticMember);
       }
-      return Business.fromJson(response);
+
+      final member = BusinessMember.fromJson(memberResponse);
+
+      // 2. Fetch the corresponding business
+      final businessResponse = await _client
+          .from('businesses')
+          .select()
+          .eq('id', member.businessId)
+          .single();
+
+      final business = Business.fromJson(businessResponse);
+
+      // If user is owner_id, force role to admin
+      if (business.ownerId == userId) {
+        final adminMember = BusinessMember(
+          id: member.id,
+          businessId: member.businessId,
+          userId: member.userId,
+          role: 'admin',
+          permissions: {'all': true},
+          status: member.status,
+        );
+        return (business: business, member: adminMember);
+      }
+
+      return (business: business, member: member);
     } catch (e) {
       throw Exception('Failed to load business data. Please try again.');
     }
+  }
+
+  /// Legacy fetch business method.
+  Future<Business?> fetchBusiness(String userId) async {
+    final result = await fetchMemberAndBusiness(userId);
+    return result?.business;
   }
 
   /// Update the business name.

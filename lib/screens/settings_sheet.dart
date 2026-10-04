@@ -256,7 +256,8 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final business = ref.watch(currentBusinessProvider);
-    final sheetHeight = MediaQuery.of(context).size.height * 0.70;
+    final isAdmin = ref.watch(isAdminProvider);
+    final sheetHeight = MediaQuery.of(context).size.height * (isAdmin ? 0.70 : 0.35);
 
     return Container(
       height: sheetHeight,
@@ -317,6 +318,22 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (!isAdmin) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _confirmSignOut(context),
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Sign Out'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.statusError,
+                            side: const BorderSide(color: AppColors.statusError),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
                     // 1. Subscription Plan Section
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -720,6 +737,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                         ),
                       ),
                     ),
+                  ],
                   ],
                 ),
               ),

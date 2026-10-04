@@ -72,6 +72,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     final business = ref.watch(currentBusinessProvider);
     final rate = business?.currencyRate ?? 0;
 
+    final canEditInventory = ref.watch(hasPermissionProvider('edit_inventory'));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventory'),
@@ -230,9 +232,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Tap + to add your first product',
-                            style: TextStyle(
+                          Text(
+                            canEditInventory
+                                ? 'Tap + to add your first product'
+                                : 'No products available',
+                            style: const TextStyle(
                               fontSize: 14,
                               color: AppColors.textSecondary,
                             ),
@@ -257,8 +261,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         product: product,
                         currencyRate: rate,
                         layout: ProductCardLayout.list,
-                        onTap: () => _navigateToEditProduct(product),
-                        onLongPress: () => _showStockAdjustDialog(product),
+                        onTap: canEditInventory ? () => _navigateToEditProduct(product) : null,
+                        onLongPress: canEditInventory ? () => _showStockAdjustDialog(product) : null,
                       );
                     },
                   ),
@@ -269,10 +273,12 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: FloatingActionPill(
-        icon: Icons.add_rounded,
-        onPressed: _navigateToAddProduct,
-      ),
+      floatingActionButton: canEditInventory
+          ? FloatingActionPill(
+              icon: Icons.add_rounded,
+              onPressed: _navigateToAddProduct,
+            )
+          : null,
     );
   }
 }

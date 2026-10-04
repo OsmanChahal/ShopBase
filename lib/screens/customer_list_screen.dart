@@ -95,6 +95,9 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canViewOverview = ref.watch(hasPermissionProvider('view_crm_overview'));
+    final showOverview = canViewOverview && _selectedSection == 0;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Customers'),
@@ -103,7 +106,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
             onPressed: () {
-              if (_selectedSection == 0) {
+              if (showOverview) {
                 _invalidateOverview();
               } else {
                 ref.invalidate(customerListProvider);
@@ -115,14 +118,15 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
       body: Column(
         children: [
           // ─── Segmented control ───
-          _SectionSwitcher(
-            selectedIndex: _selectedSection,
-            onChanged: (i) => setState(() => _selectedSection = i),
-          ),
+          if (canViewOverview)
+            _SectionSwitcher(
+              selectedIndex: _selectedSection,
+              onChanged: (i) => setState(() => _selectedSection = i),
+            ),
 
           // ─── Section body ───
           Expanded(
-            child: _selectedSection == 0
+            child: showOverview
                 ? const OfflineScopeBoundary(child: _OverviewSection())
                 : _CustomerListSection(
                     searchController: _searchController,
@@ -134,7 +138,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
       ),
       // Only show the FAB on the Customers list section
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: _selectedSection == 1
+      floatingActionButton: !showOverview
           ? FloatingActionPill(
               icon: Icons.person_add_rounded,
               onPressed: _navigateToAdd,

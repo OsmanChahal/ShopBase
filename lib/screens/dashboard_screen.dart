@@ -19,6 +19,9 @@ class DashboardScreen extends ConsumerWidget {
     final business = ref.watch(currentBusinessProvider);
     final rate = business?.currencyRate ?? 0;
 
+    final canManageExpenses = ref.watch(hasPermissionProvider('manage_expenses'));
+    final canUsePos = ref.watch(hasPermissionProvider('use_pos'));
+
     return Scaffold(
       appBar: AppBar(
         title: Text(business?.name ?? 'Dashboard'),
@@ -40,72 +43,79 @@ class DashboardScreen extends ConsumerWidget {
       body: OfflineScopeBoundary(
         child: RefreshIndicator(
           onRefresh: () async {
-          ref.invalidate(todaySnapshotProvider);
-          ref.invalidate(monthRevenueProvider);
-          ref.invalidate(recurringExpensesProvider);
-          ref.invalidate(oneOffExpensesProvider);
-          ref.invalidate(bestSellerProvider);
-          ref.invalidate(productListProvider);
-          await ref.read(todaySnapshotProvider.future);
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-          children: [
-            // 1. Today's Revenue Hero Card (Gradient Variant)
-            _TodayCard(rate: rate),
-            const SizedBox(height: 16),
+            ref.invalidate(todaySnapshotProvider);
+            ref.invalidate(monthRevenueProvider);
+            ref.invalidate(recurringExpensesProvider);
+            ref.invalidate(oneOffExpensesProvider);
+            ref.invalidate(bestSellerProvider);
+            ref.invalidate(productListProvider);
+            await ref.read(todaySnapshotProvider.future);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+            children: [
+              // 1. Today's Revenue Hero Card (Gradient Variant)
+              _TodayCard(rate: rate),
+              const SizedBox(height: 16),
 
-            // 2. Financial Insights (Flat Variant)
-            _FinancialCard(rate: rate),
-            const SizedBox(height: 16),
-
-            // 3. Quick Actions Row (PillButtons)
-            Row(
-              children: [
-                Expanded(
-                  child: PillButton(
-                    label: 'Add Sale',
-                    icon: Icons.add_shopping_cart_rounded,
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const PosScreen()),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: PillButton(
-                    label: 'Manage Expenses',
-                    icon: Icons.receipt_long_rounded,
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const ExpenseListScreen()),
-                      );
-                    },
-                  ),
-                ),
+              // 2. Financial Insights (Flat Variant)
+              if (canManageExpenses) ...[
+                _FinancialCard(rate: rate),
+                const SizedBox(height: 16),
               ],
-            ),
-            const SizedBox(height: 16),
 
-            // 4. Date Range Filter & Insights
-            _DateRangeCard(rate: rate),
-            const SizedBox(height: 16),
+              // 3. Quick Actions Row (PillButtons)
+              if (canUsePos || canManageExpenses) ...[
+                Row(
+                  children: [
+                    if (canUsePos)
+                      Expanded(
+                        child: PillButton(
+                          label: 'Add Sale',
+                          icon: Icons.add_shopping_cart_rounded,
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const PosScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                    if (canUsePos && canManageExpenses)
+                      const SizedBox(width: 12),
+                    if (canManageExpenses)
+                      Expanded(
+                        child: PillButton(
+                          label: 'Manage Expenses',
+                          icon: Icons.receipt_long_rounded,
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const ExpenseListScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
 
-            // 5. Inventory Overview
-            const _InventoryCard(),
-            const SizedBox(height: 16),
+              // 4. Date Range Filter & Insights
+              _DateRangeCard(rate: rate),
+              const SizedBox(height: 16),
 
-            // 6. Best Seller Card
-            const _BestSellerCard(),
-          ],
+              // 5. Inventory Overview
+              const _InventoryCard(),
+              const SizedBox(height: 16),
+
+              // 6. Best Seller Card
+              const _BestSellerCard(),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 /// Today's Revenue Hero MetricCard (Gradient Variant).
@@ -200,6 +210,7 @@ class _FinancialCard extends ConsumerWidget {
     final monthRevAsync = ref.watch(monthRevenueProvider);
     final recurringAsync = ref.watch(recurringExpensesProvider);
     final oneOffAsync = ref.watch(oneOffExpensesProvider);
+    final canManageExpenses = ref.watch(hasPermissionProvider('manage_expenses'));
 
     final isLoading =
         monthRevAsync.isLoading ||
@@ -214,11 +225,13 @@ class _FinancialCard extends ConsumerWidget {
     return MetricCard(
       title: 'Financial Insights',
       icon: Icons.insights_rounded,
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ExpenseListScreen()),
-        );
-      },
+      onTap: canManageExpenses
+          ? () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ExpenseListScreen()),
+              );
+            }
+          : null,
       child: isLoading
           ? const Center(
               child: Padding(

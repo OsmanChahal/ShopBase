@@ -28,13 +28,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isPulling = true;
   String? _pullError;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    PosScreen(),
-    ProductListScreen(),
-    CustomerListScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -94,16 +87,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _onTabTapped(int index) {
-    if (index == 3) {
-      // Always bump the notifier so CustomerListScreen resets to Overview
-      customerTabTapNotifier.value++;
-    }
+  void _onTabTapped(int index, List<Widget> screens) {
     setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final canViewDashboard = ref.watch(hasPermissionProvider('view_dashboard'));
+    final canUsePos = ref.watch(hasPermissionProvider('use_pos'));
+    final canViewInventory = ref.watch(hasPermissionProvider('view_inventory'));
+    final canManageCustomers = ref.watch(hasPermissionProvider('manage_customers'));
+
+    final List<Widget> availableScreens = [];
+    final List<BottomNavigationBarItem> availableItems = [];
+
+    if (canViewDashboard) {
+      availableScreens.add(const DashboardScreen());
+      availableItems.add(const BottomNavigationBarItem(
+        icon: Icon(Icons.dashboard_outlined),
+        activeIcon: Icon(Icons.dashboard),
+        label: 'Dashboard',
+      ));
+    }
+    if (canUsePos) {
+      availableScreens.add(const PosScreen());
+      availableItems.add(const BottomNavigationBarItem(
+        icon: Icon(Icons.point_of_sale_outlined),
+        activeIcon: Icon(Icons.point_of_sale),
+        label: 'POS',
+      ));
+    }
+    if (canViewInventory) {
+      availableScreens.add(const ProductListScreen());
+      availableItems.add(const BottomNavigationBarItem(
+        icon: Icon(Icons.inventory_2_outlined),
+        activeIcon: Icon(Icons.inventory_2),
+        label: 'Inventory',
+      ));
+    }
+    if (canManageCustomers) {
+      availableScreens.add(const CustomerListScreen());
+      availableItems.add(const BottomNavigationBarItem(
+        icon: Icon(Icons.people_outline),
+        activeIcon: Icon(Icons.people),
+        label: 'Customers',
+      ));
+    }
+
+    int activeIndex = _currentIndex;
+    if (activeIndex >= availableScreens.length) {
+      activeIndex = 0;
+    }
+
     // Show loading overlay during initial pull
     if (_isPulling) {
       return Scaffold(
@@ -177,37 +212,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
+    if (availableScreens.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('No Permissions')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text(
+              'Your staff account has no active permissions assigned. Please ask your administrator to grant you access.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        floatingActionButton: FloatingActionButton.small(
+          onPressed: _openSettings,
+          tooltip: 'Settings',
+          heroTag: 'settings',
+          child: const Icon(Icons.settings, size: 20),
+        ),
+      );
+    }
+
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+        index: activeIndex,
+        children: availableScreens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.point_of_sale_outlined),
-            activeIcon: Icon(Icons.point_of_sale),
-            label: 'POS',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory_2),
-            label: 'Inventory',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline),
-            activeIcon: Icon(Icons.people),
-            label: 'Customers',
-          ),
-        ],
-      ),
+      bottomNavigationBar: availableItems.length > 1
+          ? BottomNavigationBar(
+              currentIndex: activeIndex,
+              onTap: (idx) => _onTabTapped(idx, availableScreens),
+              items: availableItems,
+            )
+          : null,
       floatingActionButton: FloatingActionButton.small(
         onPressed: _openSettings,
         tooltip: 'Settings',

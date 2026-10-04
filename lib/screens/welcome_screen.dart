@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
+import 'staff_register_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -86,6 +87,18 @@ class WelcomeScreen extends StatelessWidget {
                   },
                   child: const Text('Sign In'),
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // Staff register button
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const StaffRegisterScreen()),
+                  );
+                },
+                child: const Text('Register as Staff'),
               ),
 
               const Spacer(flex: 1),

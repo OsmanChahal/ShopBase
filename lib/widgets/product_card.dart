@@ -10,7 +10,7 @@ class ProductCard extends StatelessWidget {
   final Product product;
   final double currencyRate;
   final ProductCardLayout layout;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final int inCartCount;
 
@@ -19,7 +19,7 @@ class ProductCard extends StatelessWidget {
     required this.product,
     required this.currencyRate,
     this.layout = ProductCardLayout.grid,
-    required this.onTap,
+    this.onTap,
     this.onLongPress,
     this.inCartCount = 0,
   });

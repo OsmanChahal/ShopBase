@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/staff_invitation.dart';
+import '../models/business_member.dart';
 import '../services/staff_service.dart';
 import 'auth_provider.dart';
 
@@ -9,9 +10,22 @@ final staffServiceProvider = Provider<StaffService>((ref) {
 });
 
 /// Fetches the list of staff invitations for the current business.
-final staffInvitationsProvider = FutureProvider<List<StaffInvitation>>((ref) async {
+final staffInvitationsProvider = FutureProvider<List<StaffInvitation>>((
+  ref,
+) async {
   final business = ref.watch(currentBusinessProvider);
   if (business == null) return [];
-  
+
   return ref.watch(staffServiceProvider).getInvitations(business.id);
 });
+
+/// Fetches the list of staff members (active & inactive) for the current business.
+final staffMembersProvider = FutureProvider<List<BusinessMember>>((
+  ref,
+) async {
+  final business = ref.watch(currentBusinessProvider);
+  if (business == null) return [];
+
+  return ref.watch(staffServiceProvider).getStaffMembers(business.id);
+});
+

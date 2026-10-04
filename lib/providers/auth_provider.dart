@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/business.dart';
+import '../models/business_member.dart';
 import '../services/auth_service.dart';
 
 /// Provides the Supabase client instance.
@@ -22,40 +23,46 @@ enum AppAuthState {
   noBusinessFound,
 }
 
-/// Combined auth + business state.
+/// Combined auth + business + member role state.
 class AuthBusinessState {
   final AppAuthState status;
   final Business? business;
+  final BusinessMember? member;
   final String? errorMessage;
 
   const AuthBusinessState({
     required this.status,
     this.business,
+    this.member,
     this.errorMessage,
   });
 
   const AuthBusinessState.loading()
       : status = AppAuthState.loading,
         business = null,
+        member = null,
         errorMessage = null;
 
   const AuthBusinessState.unauthenticated()
       : status = AppAuthState.unauthenticated,
         business = null,
+        member = null,
         errorMessage = null;
 
-  const AuthBusinessState.authenticated(this.business)
+  const AuthBusinessState.authenticated(this.business, this.member)
       : status = AppAuthState.authenticated,
         errorMessage = null;
 
   const AuthBusinessState.noBusinessFound()
       : status = AppAuthState.noBusinessFound,
         business = null,
+        member = null,
         errorMessage = null;
 
   const AuthBusinessState.error(this.errorMessage)
       : status = AppAuthState.unauthenticated,
-        business = null;
+        business = null,
+        member = null;
 }
 
 /// Notifier that manages auth state and business lookup.
@@ -82,9 +89,6 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
     _authSubscription = _authService.onAuthStateChange.listen((data) async {
       final event = data.event;
       if (event == AuthChangeEvent.signedIn) {
-        // Skip automatic business fetch during signUp — the signUp method
-        // handles state directly to avoid a race condition where this
-        // listener fires before the business row has been inserted.
         if (_isSigningUp) return;
 
         final userId = data.session?.user.id;
@@ -100,9 +104,9 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
   Future<void> _loadBusiness(String userId) async {
     state = const AuthBusinessState.loading();
     try {
-      final business = await _authService.fetchBusiness(userId);
-      if (business != null) {
-        state = AuthBusinessState.authenticated(business);
+      final result = await _authService.fetchMemberAndBusiness(userId);
+      if (result != null) {
+        state = AuthBusinessState.authenticated(result.business, result.member);
       } else {
         state = const AuthBusinessState.noBusinessFound();
       }
@@ -135,9 +139,6 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
   }
 
   /// Sign up a new user, create their business, and set authenticated state.
-  /// Uses a flag to suppress the onAuthStateChange listener during signup
-  /// to prevent a race condition where the listener tries to fetch the
-  /// business row before it has been inserted.
   Future<void> signUp({
     required String email,
     required String password,
@@ -153,9 +154,15 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
         businessName: businessName,
         businessType: businessType,
       );
-      // Use the returned Business directly — no separate fetch needed,
-      // no race with the listener.
-      state = AuthBusinessState.authenticated(business);
+      final ownerMember = BusinessMember(
+        id: 'owner_${business.ownerId}',
+        businessId: business.id,
+        userId: business.ownerId,
+        role: 'admin',
+        permissions: {'all': true},
+        status: 'active',
+      );
+      state = AuthBusinessState.authenticated(business, ownerMember);
     } catch (e) {
       state = const AuthBusinessState.unauthenticated();
       rethrow;
@@ -177,12 +184,13 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
   /// Update the currency rate for the current business.
   Future<void> updateCurrencyRate(double rate) async {
     final business = state.business;
+    final member = state.member;
     if (business == null) {
       throw Exception('No business loaded.');
     }
     try {
       final updated = await _authService.updateCurrencyRate(business.id, rate);
-      state = AuthBusinessState.authenticated(updated);
+      state = AuthBusinessState.authenticated(updated, member);
     } catch (e) {
       rethrow;
     }
@@ -191,12 +199,13 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
   /// Update the name of the current business.
   Future<void> updateBusinessName(String name) async {
     final business = state.business;
+    final member = state.member;
     if (business == null) {
       throw Exception('No business loaded.');
     }
     try {
       final updated = await _authService.updateBusinessName(business.id, name);
-      state = AuthBusinessState.authenticated(updated);
+      state = AuthBusinessState.authenticated(updated, member);
     } catch (e) {
       rethrow;
     }
@@ -205,12 +214,13 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
   /// Update the type of the current business.
   Future<void> updateBusinessType(String businessType) async {
     final business = state.business;
+    final member = state.member;
     if (business == null) {
       throw Exception('No business loaded.');
     }
     try {
       final updated = await _authService.updateBusinessType(business.id, businessType);
-      state = AuthBusinessState.authenticated(updated);
+      state = AuthBusinessState.authenticated(updated, member);
     } catch (e) {
       rethrow;
     }
@@ -233,3 +243,37 @@ final authProvider =
 final currentBusinessProvider = Provider<Business?>((ref) {
   return ref.watch(authProvider).business;
 });
+
+/// Convenience provider to get the current member (or null).
+final currentMemberProvider = Provider<BusinessMember?>((ref) {
+  return ref.watch(authProvider).member;
+});
+
+/// Returns true if the user is an admin.
+final isAdminProvider = Provider<bool>((ref) {
+  final member = ref.watch(currentMemberProvider);
+  if (member != null) {
+    return member.role == 'admin';
+  }
+  final business = ref.watch(currentBusinessProvider);
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (business != null && userId != null) {
+    return business.ownerId == userId;
+  }
+  return false;
+});
+
+/// Convenience provider to check if the current user has a specific permission.
+final hasPermissionProvider = Provider.family<bool, String>((ref, key) {
+  final member = ref.watch(currentMemberProvider);
+  if (member == null) {
+    final business = ref.watch(currentBusinessProvider);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (business != null && userId != null && business.ownerId == userId) {
+      return true;
+    }
+    return false;
+  }
+  return member.hasPermission(key);
+});
+
