@@ -227,6 +227,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(localStockTransferItems);
         await m.addColumn(localSales, localSales.inventoryId);
         await m.addColumn(localSaleItems, localSaleItems.costPriceUsdSnapshot);
+        await m.database.customStatement('DELETE FROM sync_metadata');
       }
     },
   );

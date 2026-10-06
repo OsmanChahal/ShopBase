@@ -143,11 +143,24 @@ class SyncEngine {
   Future<void> _pull(String businessId) async {
     final lastPullAt = await _getLastPullAt(businessId);
     final now = DateTime.now().toUtc();
+    final overlapSince = lastPullAt?.subtract(const Duration(minutes: 2));
 
     dev.log('[SyncEngine Pull] Pulling updates since: $lastPullAt');
 
+    await _pullInventories(businessId, overlapSince);
     await _pullProducts(businessId, lastPullAt);
+    await _pullInventoryStock(businessId, overlapSince);
+    await _pullInventoryAccess();
+    await _pullTransfers(businessId, overlapSince);
     await _pullCustomers(businessId, lastPullAt);
+
+    dev.log(
+      '[SyncEngine Pull] local inventories='
+      '${(await _db.select(_db.localInventories).get()).length}, '
+      'stock=${(await _db.select(_db.localInventoryStock).get()).length}, '
+      'access=${(await _db.select(_db.localInventoryAccess).get()).length}, '
+      'transfers=${(await _db.select(_db.localStockTransfers).get()).length}',
+    );
 
     await _updateLastPullAt(businessId, now);
   }
@@ -291,5 +304,250 @@ class SyncEngine {
             ),
           );
     }
+  }
+
+  // ── NEW: multi-inventory pulls ─────────────────────────────────────────────
+
+  /// Supabase returns at most 1000 rows per request, so page through them.
+  Future<List<Map<String, dynamic>>> _fetchAllPages(
+    dynamic Function() buildFiltered,
+    List<String> orderBy,
+  ) async {
+    const pageSize = 1000;
+    final out = <Map<String, dynamic>>[];
+    var from = 0;
+    while (true) {
+      dynamic q = buildFiltered();
+      for (final col in orderBy) {
+        q = q.order(col);
+      }
+      final List<dynamic> page = await q.range(from, from + pageSize - 1);
+      out.addAll(page.cast<Map<String, dynamic>>());
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  }
+
+  Future<void> _pullInventories(String businessId, DateTime? since) async {
+    final rows = await _fetchAllPages(() {
+      dynamic q = _supabase
+          .from('inventories')
+          .select()
+          .eq('business_id', businessId);
+      if (since != null) q = q.gt('updated_at', since.toIso8601String());
+      return q;
+    }, ['id']);
+    if (rows.isEmpty) return;
+    dev.log('[SyncEngine Pull] Pulled ${rows.length} inventory updates.');
+
+    await _db.transaction(() async {
+      for (final j in rows) {
+        final id = j['id'] as String;
+        final serverUpdatedAt = DateTime.parse(j['updated_at'] as String);
+        final local = await (_db.select(
+          _db.localInventories,
+        )..where((t) => t.id.equals(id))).getSingleOrNull();
+        // Last-write-wins: keep a newer local edit (e.g. an unsynced rename)
+        if (local?.updatedAt != null &&
+            local!.updatedAt!.isAfter(serverUpdatedAt)) {
+          continue;
+        }
+        await _db
+            .into(_db.localInventories)
+            .insertOnConflictUpdate(
+              LocalInventoriesCompanion.insert(
+                id: id,
+                businessId: j['business_id'] as String,
+                name: j['name'] as String,
+                isArchived: Value(j['is_archived'] as bool? ?? false),
+                createdAt: DateTime.parse(j['created_at'] as String),
+                updatedAt: Value(serverUpdatedAt),
+              ),
+            );
+      }
+    });
+  }
+
+  Future<void> _pullInventoryStock(String businessId, DateTime? since) async {
+    final inventoryIds =
+        (await (_db.select(
+              _db.localInventories,
+            )..where((t) => t.businessId.equals(businessId))).get())
+            .map((r) => r.id)
+            .toList();
+    if (inventoryIds.isEmpty) return;
+
+    final rows = await _fetchAllPages(() {
+      dynamic q = _supabase
+          .from('inventory_stock')
+          .select()
+          .inFilter('inventory_id', inventoryIds);
+      if (since != null) q = q.gt('updated_at', since.toIso8601String());
+      return q;
+    }, ['product_id', 'inventory_id']);
+    if (rows.isEmpty) return;
+    dev.log('[SyncEngine Pull] Pulled ${rows.length} stock rows.');
+
+    await _db.transaction(() async {
+      for (final j in rows) {
+        final productId = j['product_id'] as String;
+        final inventoryId = j['inventory_id'] as String;
+        final serverUpdatedAt = DateTime.parse(j['updated_at'] as String);
+        final qty = j['quantity'] as int;
+        final sell = (j['sell_price_usd'] as num).toDouble();
+        final cost = (j['cost_price_usd'] as num).toDouble();
+        final threshold = j['low_stock_threshold'] as int? ?? 5;
+
+        final local =
+            await (_db.select(_db.localInventoryStock)..where(
+                  (t) =>
+                      t.productId.equals(productId) &
+                      t.inventoryId.equals(inventoryId),
+                ))
+                .getSingleOrNull();
+
+        if (local == null) {
+          await _db
+              .into(_db.localInventoryStock)
+              .insert(
+                LocalInventoryStockCompanion.insert(
+                  productId: productId,
+                  inventoryId: inventoryId,
+                  quantity: Value(qty),
+                  sellPriceUsd: sell,
+                  costPriceUsd: cost,
+                  lowStockThreshold: Value(threshold),
+                  updatedAt: Value(serverUpdatedAt),
+                ),
+              );
+        } else {
+          // Same rule as products: quantity = server value (authoritative after
+          // the push); prices/threshold = last-write-wins on updatedAt.
+          final updateFields =
+              local.updatedAt == null ||
+              serverUpdatedAt.isAfter(local.updatedAt!);
+          await (_db.update(_db.localInventoryStock)..where(
+                (t) =>
+                    t.productId.equals(productId) &
+                    t.inventoryId.equals(inventoryId),
+              ))
+              .write(
+                LocalInventoryStockCompanion(
+                  quantity: Value(qty),
+                  sellPriceUsd: updateFields
+                      ? Value(sell)
+                      : const Value.absent(),
+                  costPriceUsd: updateFields
+                      ? Value(cost)
+                      : const Value.absent(),
+                  lowStockThreshold: updateFields
+                      ? Value(threshold)
+                      : const Value.absent(),
+                  updatedAt: updateFields
+                      ? Value(serverUpdatedAt)
+                      : const Value.absent(),
+                ),
+              );
+        }
+      }
+    });
+  }
+
+  /// inventory_access has no updated_at, so it can't be pulled incrementally.
+  /// It's a tiny table: replace the local copy with what the server shows
+  /// this user (own rows for staff, every row for owner/admin).
+  Future<void> _pullInventoryAccess() async {
+    final rows = await _fetchAllPages(
+      () => _supabase.from('inventory_access').select(),
+      ['inventory_id', 'user_id'],
+    );
+    final companions = rows.map(
+      (j) => LocalInventoryAccessCompanion.insert(
+        inventoryId: j['inventory_id'] as String,
+        userId: j['user_id'] as String,
+        canPos: Value(j['can_pos'] as bool? ?? false),
+        canView: Value(j['can_view'] as bool? ?? false),
+        canEdit: Value(j['can_edit'] as bool? ?? false),
+      ),
+    );
+    await _db.transaction(() async {
+      await _db.delete(_db.localInventoryAccess).go();
+      await _db.batch(
+        (b) => b.insertAll(
+          _db.localInventoryAccess,
+          companions.toList(),
+          mode: InsertMode.insertOrReplace,
+        ),
+      );
+    });
+  }
+
+  Future<void> _pullTransfers(String businessId, DateTime? since) async {
+    final rows = await _fetchAllPages(() {
+      dynamic q = _supabase
+          .from('stock_transfers')
+          .select()
+          .eq('business_id', businessId);
+      if (since != null) q = q.gt('created_at', since.toIso8601String());
+      return q;
+    }, ['created_at', 'id']);
+    if (rows.isEmpty) return;
+
+    // A transfer created on THIS device already exists locally (same client UUID),
+    // with its own local item rows. Skip those entirely, otherwise the server's
+    // item rows (different ids) would duplicate them.
+    final newHeaders = <Map<String, dynamic>>[];
+    for (final j in rows) {
+      final exists =
+          await (_db.select(
+            _db.localStockTransfers,
+          )..where((t) => t.id.equals(j['id'] as String))).getSingleOrNull() !=
+          null;
+      if (!exists) newHeaders.add(j);
+    }
+    if (newHeaders.isEmpty) return;
+    dev.log('[SyncEngine Pull] Pulled ${newHeaders.length} new transfers.');
+
+    final ids = newHeaders.map((j) => j['id'] as String).toList();
+    final itemRows = <Map<String, dynamic>>[];
+    for (var i = 0; i < ids.length; i += 50) {
+      final batch = ids.sublist(i, i + 50 > ids.length ? ids.length : i + 50);
+      final List<dynamic> res = await _supabase
+          .from('stock_transfer_items')
+          .select()
+          .inFilter('transfer_id', batch);
+      itemRows.addAll(res.cast<Map<String, dynamic>>());
+    }
+
+    await _db.transaction(() async {
+      for (final j in newHeaders) {
+        await _db
+            .into(_db.localStockTransfers)
+            .insertOnConflictUpdate(
+              LocalStockTransfersCompanion.insert(
+                id: j['id'] as String,
+                businessId: j['business_id'] as String,
+                fromInventoryId: j['from_inventory_id'] as String,
+                toInventoryId: j['to_inventory_id'] as String,
+                createdBy: Value(j['created_by'] as String?),
+                createdAt: DateTime.parse(j['created_at'] as String),
+              ),
+            );
+      }
+      for (final j in itemRows) {
+        await _db
+            .into(_db.localStockTransferItems)
+            .insertOnConflictUpdate(
+              LocalStockTransferItemsCompanion.insert(
+                id: j['id'] as String,
+                transferId: j['transfer_id'] as String,
+                productId: Value(j['product_id'] as String?),
+                quantity: j['quantity'] as int,
+                productNameSnapshot: j['product_name_snapshot'] as String,
+              ),
+            );
+      }
+    });
   }
 }

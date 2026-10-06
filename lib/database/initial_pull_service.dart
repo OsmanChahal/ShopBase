@@ -21,10 +21,10 @@ class InitialPullService {
     required LocalProductRepository productRepo,
     required LocalCustomerRepository customerRepo,
     required LocalSaleRepository saleRepo,
-  })  : _supabase = supabase,
-        _productRepo = productRepo,
-        _customerRepo = customerRepo,
-        _saleRepo = saleRepo;
+  }) : _supabase = supabase,
+       _productRepo = productRepo,
+       _customerRepo = customerRepo,
+       _saleRepo = saleRepo;
 
   /// Check if the initial pull is needed and perform it if so.
   /// Returns true if a pull was performed, false if it was skipped.
@@ -59,9 +59,11 @@ class InitialPullService {
         sellPriceUsd: (j['sell_price_usd'] as num).toDouble(),
         quantity: j['quantity'] as int,
         lowStockThreshold: Value((j['low_stock_threshold'] as int?) ?? 5),
-        updatedAt: Value(j['updated_at'] != null
-            ? DateTime.parse(j['updated_at'] as String)
-            : now),
+        updatedAt: Value(
+          j['updated_at'] != null
+              ? DateTime.parse(j['updated_at'] as String)
+              : now,
+        ),
         lastSyncedAt: Value(now),
       );
     }).toList();
@@ -114,6 +116,7 @@ class InitialPullService {
           paymentType: j['payment_type'] as String,
           createdAt: DateTime.parse(j['created_at'] as String),
           synced: const Value(true), // Already exists on server
+          inventoryId: Value(j['inventory_id'] as String?),
         );
       }).toList();
 
@@ -136,15 +139,22 @@ class InitialPullService {
 
         for (final json in (itemsResponse as List)) {
           final j = json as Map<String, dynamic>;
-          allItemCompanions.add(LocalSaleItemsCompanion.insert(
-            id: j['id'] as String,
-            saleId: j['sale_id'] as String,
-            productId: j['product_id'] as String,
-            productNameSnapshot: j['product_name_snapshot'] as String,
-            quantity: j['quantity'] as int,
-            unitPriceUsd: (j['unit_price_usd'] as num).toDouble(),
-            subtotalUsd: (j['subtotal_usd'] as num).toDouble(),
-          ));
+          allItemCompanions.add(
+            LocalSaleItemsCompanion.insert(
+              id: j['id'] as String,
+              saleId: j['sale_id'] as String,
+              productId:
+                  (j['product_id'] as String?) ??
+                  '', //Changes null after product deletion
+              productNameSnapshot: j['product_name_snapshot'] as String,
+              quantity: j['quantity'] as int,
+              unitPriceUsd: (j['unit_price_usd'] as num).toDouble(),
+              subtotalUsd: (j['subtotal_usd'] as num).toDouble(),
+              costPriceUsdSnapshot: Value(
+                (j['cost_price_snapshot'] as num?)?.toDouble(),
+              ),
+            ),
+          );
         }
       }
 
