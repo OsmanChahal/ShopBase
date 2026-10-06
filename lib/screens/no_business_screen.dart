@@ -1,3 +1,4 @@
+import 'package:crm_pos/providers/session_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -42,13 +43,17 @@ class NoBusinessScreen extends ConsumerWidget {
                 const SizedBox(height: 40),
                 OutlinedButton.icon(
                   onPressed: () {
-                    ref.read(authProvider.notifier).signOut();
+                    ref
+                        .read(sessionActionsProvider)
+                        .signOut(discardUnsynced: true);
                   },
                   icon: const Icon(Icons.logout),
                   label: const Text('Sign Out'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 14),
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ],

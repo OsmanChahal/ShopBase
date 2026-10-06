@@ -33,6 +33,7 @@ class ConnectivityService {
   /// Start listening for connectivity changes.
   /// Calls [onOnline] when transitioning from offline → online.
   void startListening() {
+    _subscription?.cancel();
     _subscription = _connectivity.onConnectivityChanged.listen((results) {
       final nowOnline = _hasConnection(results);
 
@@ -44,7 +45,9 @@ class ConnectivityService {
       _wasOffline = !nowOnline;
       final statusChanged = _isOnline != nowOnline;
       _isOnline = nowOnline;
-      dev.log('[ConnectivityService] Status: ${nowOnline ? "online" : "offline"}');
+      dev.log(
+        '[ConnectivityService] Status: ${nowOnline ? "online" : "offline"}',
+      );
 
       if (statusChanged) {
         onConnectivityChange?.call(nowOnline);
@@ -66,9 +69,11 @@ class ConnectivityService {
 
   /// Returns true if any of the results indicate a usable connection.
   bool _hasConnection(List<ConnectivityResult> results) {
-    return results.any((r) =>
-        r == ConnectivityResult.wifi ||
-        r == ConnectivityResult.mobile ||
-        r == ConnectivityResult.ethernet);
+    return results.any(
+      (r) =>
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.ethernet,
+    );
   }
 }

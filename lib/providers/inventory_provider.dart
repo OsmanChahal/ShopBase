@@ -1,4 +1,5 @@
 import 'dart:developer' as dev;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -50,14 +51,56 @@ final posInventoriesProvider = FutureProvider<List<LocalInventory>>(
   (ref) => _loadInventories(ref, posOnly: true),
 );
 
-/// The user's explicit choice. null = "use the first accessible one".
-/// In-memory for now; persistence per user comes after I check pubspec.
-final selectedInventoryIdProvider = StateProvider<String?>((ref) => null);
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>(
+  (ref) => SharedPreferences.getInstance(),
+);
+
+/// The user's explicit choice, remembered per user on this device.
+/// null = "use the first accessible one".
+class SelectedInventoryNotifier extends StateNotifier<String?> {
+  final SharedPreferences? _prefs;
+  final String? _key;
+
+  SelectedInventoryNotifier(this._prefs, this._key)
+    : super((_prefs == null || _key == null) ? null : _prefs.getString(_key));
+
+  Future<void> select(String? inventoryId) async {
+    state = inventoryId;
+    final prefs = _prefs;
+    final key = _key;
+    if (prefs == null || key == null) return;
+    try {
+      if (inventoryId == null) {
+        await prefs.remove(key);
+      } else {
+        await prefs.setString(key, inventoryId);
+      }
+    } catch (e) {
+      dev.log('[Inventory] could not save selection: $e');
+    }
+  }
+}
+
+final selectedInventoryIdProvider =
+    StateNotifierProvider<SelectedInventoryNotifier, String?>((ref) {
+      ref.watch(
+        currentBusinessProvider.select((b) => b?.id),
+      ); // rebuild on login/logout
+      final prefs = ref.watch(sharedPreferencesProvider).valueOrNull;
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      return SelectedInventoryNotifier(
+        prefs,
+        userId == null ? null : 'selected_inventory_$userId',
+      );
+    });
 
 /// The inventory the app is currently working in. Falls back to the first
-/// accessible inventory if the selection is missing, archived or revoked.
-/// null means no inventories have been pulled yet (offline right after upgrade).
+/// accessible inventory if the saved one is missing, archived or revoked.
 final currentInventoryIdProvider = FutureProvider<String?>((ref) async {
+  // Wait for prefs so the saved choice is applied before anything renders
+  try {
+    await ref.watch(sharedPreferencesProvider.future);
+  } catch (_) {}
   final list = await ref.watch(accessibleInventoriesProvider.future);
   final selected = ref.watch(selectedInventoryIdProvider);
   final id = (selected != null && list.any((i) => i.id == selected))

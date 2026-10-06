@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../providers/session_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/business_types.dart';
@@ -247,8 +248,54 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     );
 
     if (confirmed == true) {
-      nav.pop(); // Close settings sheet
-      await ref.read(authProvider.notifier).signOut();
+      final outcome = await ref.read(sessionActionsProvider).signOut();
+      if (outcome.signedOut) {
+        if (mounted) nav.pop(); // close the settings sheet
+        return;
+      }
+      if (!mounted) return;
+      await _showUnsyncedDialog(outcome, nav);
+    }
+  }
+
+  // NEW
+  Future<void> _showUnsyncedDialog(
+    SignOutOutcome outcome,
+    NavigatorState nav,
+  ) async {
+    final onlyFailed = outcome.pending == 0;
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Can't sign out yet"),
+        content: Text(
+          onlyFailed
+              ? '${outcome.failed} change(s) could not be synced to the server. '
+                    'Signing out now will permanently discard them.'
+              : '${outcome.pending} change(s) have not synced yet. '
+                    'Connect to the internet and try again, so nothing is lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(onlyFailed ? 'Cancel' : 'OK'),
+          ),
+          if (onlyFailed)
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              child: const Text('Discard & sign out'),
+            ),
+        ],
+      ),
+    );
+    if (discard == true) {
+      final result = await ref
+          .read(sessionActionsProvider)
+          .signOut(discardUnsynced: true);
+      if (result.signedOut && mounted) nav.pop();
     }
   }
 
@@ -257,7 +304,8 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     final theme = Theme.of(context);
     final business = ref.watch(currentBusinessProvider);
     final isAdmin = ref.watch(isAdminProvider);
-    final sheetHeight = MediaQuery.of(context).size.height * (isAdmin ? 0.70 : 0.35);
+    final sheetHeight =
+        MediaQuery.of(context).size.height * (isAdmin ? 0.70 : 0.35);
 
     return Container(
       height: sheetHeight,
@@ -328,416 +376,431 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                           label: const Text('Sign Out'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.statusError,
-                            side: const BorderSide(color: AppColors.statusError),
+                            side: const BorderSide(
+                              color: AppColors.statusError,
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
                       ),
                     ] else ...[
-                    // 1. Subscription Plan Section
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryPurple.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
+                      // 1. Subscription Plan Section
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
                           color: AppColors.primaryPurple.withValues(
-                            alpha: 0.15,
+                            alpha: 0.05,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.primaryPurple.withValues(
+                              alpha: 0.15,
+                            ),
                           ),
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.workspace_premium_rounded,
-                                size: 22,
-                                color: AppColors.primaryPurple,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Current Plan',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textGray,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.workspace_premium_rounded,
+                                  size: 22,
                                   color: AppColors.primaryPurple,
-                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Text(
-                                  'Free Trial',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Current Plan',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textGray,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-
-                          // 2. See other plans button
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _showComingSoon,
-                              icon: const Icon(Icons.stars_outlined, size: 18),
-                              label: const Text('See other plans'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // 3. Edit Business Profile Section
-                    Text(
-                      'BUSINESS PROFILE',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppColors.textGray,
-                        letterSpacing: 0.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.baseWhite,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.borderGray),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _businessNameController,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: InputDecoration(
-                              labelText: 'Business Name',
-                              prefixIcon: const Icon(Icons.storefront_outlined),
-                              errorText: _nameErrorText,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isSavingName
-                                  ? null
-                                  : _saveBusinessName,
-                              child: _isSavingName
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Save Business Name'),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const Divider(height: 1),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedBusinessType,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: 'Business Type',
-                              prefixIcon: const Icon(Icons.category_outlined),
-                              errorText: _businessTypeErrorText,
-                            ),
-                            items: [
-                              ...kBusinessTypes.map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryPurple,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                   child: Text(
-                                    type,
-                                    overflow: TextOverflow.ellipsis,
+                                    'Free Trial',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+
+                            // 2. See other plans button
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _showComingSoon,
+                                icon: const Icon(
+                                  Icons.stars_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('See other plans'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
                                   ),
                                 ),
                               ),
-                              const DropdownMenuItem(
-                                value: kOtherBusinessType,
-                                child: Text(kOtherBusinessType),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedBusinessType = value;
-                                _businessTypeErrorText = null;
-                              });
-                            },
-                          ),
-                          if (_selectedBusinessType == kOtherBusinessType) ...[
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _customBusinessTypeController,
-                              textCapitalization: TextCapitalization.words,
-                              decoration: const InputDecoration(
-                                labelText: 'Specify Business Type',
-                                prefixIcon: Icon(Icons.edit_outlined),
-                                hintText: 'e.g. Pet Salon, Antique Shop',
-                              ),
-                              onChanged: (_) {
-                                if (_businessTypeErrorText != null) {
-                                  setState(() => _businessTypeErrorText = null);
-                                }
-                              },
                             ),
                           ],
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isSavingType
-                                  ? null
-                                  : _saveBusinessType,
-                              child: _isSavingType
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Save Business Type'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ── MANAGE STAFF ────────────────────────────────────
-                    Text(
-                      'MANAGE STAFF',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppColors.textGray,
-                        letterSpacing: 0.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.baseWhite,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.borderGray),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.people_outline,
-                                size: 20,
-                                color: AppColors.primaryPurple,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Staff Accounts',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Invite and manage staff members for this business.',
-                            style: TextStyle(
-                              color: AppColors.textGray,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const ManageStaffScreen(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(
-                                Icons.group_add_outlined,
-                                size: 18,
-                              ),
-                              label: const Text('Manage Staff'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ── MANAGE TAGS ─────────────────────────────────────
-                    Text(
-                      'MANAGE TAGS',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppColors.textGray,
-                        letterSpacing: 0.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _ManageTagsSection(),
-
-                    const SizedBox(height: 24),
-
-                    // 4. Currency Rate Editor Section
-                    Text(
-                      'CURRENCY & RATE',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppColors.textGray,
-                        letterSpacing: 0.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.baseWhite,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.borderGray),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.currency_exchange_rounded,
-                                size: 20,
-                                color: AppColors.primaryPurple,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Exchange Rate (LBP per USD)',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const SizedBox(width: 28),
-                              Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: AppColors.textGray,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Last updated: ${_formatUpdatedAt(business?.currencyRateUpdatedAt)}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: AppColors.textGray,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: _rateController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[\d.]'),
-                              ),
-                            ],
-                            decoration: InputDecoration(
-                              prefixText: 'LBP ',
-                              prefixStyle: theme.textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.accentDark,
-                              ),
-                              hintText: 'e.g. 89500',
-                              errorText: _rateErrorText,
-                              suffixText: '= 1 USD',
-                              suffixStyle: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textGray,
-                              ),
-                            ),
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isSavingRate ? null : _saveRate,
-                              child: _isSavingRate
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Save Exchange Rate'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-                    const Divider(),
-                    const SizedBox(height: 12),
-
-                    // 5. Sign Out Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _confirmSignOut(context),
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Sign Out'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.statusError,
-                          side: const BorderSide(color: AppColors.statusError),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 24),
+
+                      // 3. Edit Business Profile Section
+                      Text(
+                        'BUSINESS PROFILE',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppColors.textGray,
+                          letterSpacing: 0.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.baseWhite,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.borderGray),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _businessNameController,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: InputDecoration(
+                                labelText: 'Business Name',
+                                prefixIcon: const Icon(
+                                  Icons.storefront_outlined,
+                                ),
+                                errorText: _nameErrorText,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isSavingName
+                                    ? null
+                                    : _saveBusinessName,
+                                child: _isSavingName
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Save Business Name'),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Divider(height: 1),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedBusinessType,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: 'Business Type',
+                                prefixIcon: const Icon(Icons.category_outlined),
+                                errorText: _businessTypeErrorText,
+                              ),
+                              items: [
+                                ...kBusinessTypes.map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(
+                                      type,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                const DropdownMenuItem(
+                                  value: kOtherBusinessType,
+                                  child: Text(kOtherBusinessType),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedBusinessType = value;
+                                  _businessTypeErrorText = null;
+                                });
+                              },
+                            ),
+                            if (_selectedBusinessType ==
+                                kOtherBusinessType) ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _customBusinessTypeController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: const InputDecoration(
+                                  labelText: 'Specify Business Type',
+                                  prefixIcon: Icon(Icons.edit_outlined),
+                                  hintText: 'e.g. Pet Salon, Antique Shop',
+                                ),
+                                onChanged: (_) {
+                                  if (_businessTypeErrorText != null) {
+                                    setState(
+                                      () => _businessTypeErrorText = null,
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isSavingType
+                                    ? null
+                                    : _saveBusinessType,
+                                child: _isSavingType
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Save Business Type'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── MANAGE STAFF ────────────────────────────────────
+                      Text(
+                        'MANAGE STAFF',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppColors.textGray,
+                          letterSpacing: 0.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.baseWhite,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.borderGray),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.people_outline,
+                                  size: 20,
+                                  color: AppColors.primaryPurple,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Staff Accounts',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Invite and manage staff members for this business.',
+                              style: TextStyle(
+                                color: AppColors.textGray,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const ManageStaffScreen(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.group_add_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Manage Staff'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── MANAGE TAGS ─────────────────────────────────────
+                      Text(
+                        'MANAGE TAGS',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppColors.textGray,
+                          letterSpacing: 0.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _ManageTagsSection(),
+
+                      const SizedBox(height: 24),
+
+                      // 4. Currency Rate Editor Section
+                      Text(
+                        'CURRENCY & RATE',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppColors.textGray,
+                          letterSpacing: 0.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.baseWhite,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.borderGray),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.currency_exchange_rounded,
+                                  size: 20,
+                                  color: AppColors.primaryPurple,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Exchange Rate (LBP per USD)',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const SizedBox(width: 28),
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color: AppColors.textGray,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Last updated: ${_formatUpdatedAt(business?.currencyRateUpdatedAt)}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textGray,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: _rateController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[\d.]'),
+                                ),
+                              ],
+                              decoration: InputDecoration(
+                                prefixText: 'LBP ',
+                                prefixStyle: theme.textTheme.bodyLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.accentDark,
+                                    ),
+                                hintText: 'e.g. 89500',
+                                errorText: _rateErrorText,
+                                suffixText: '= 1 USD',
+                                suffixStyle: theme.textTheme.bodySmall
+                                    ?.copyWith(color: AppColors.textGray),
+                              ),
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isSavingRate ? null : _saveRate,
+                                child: _isSavingRate
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Save Exchange Rate'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+                      const Divider(),
+                      const SizedBox(height: 12),
+
+                      // 5. Sign Out Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _confirmSignOut(context),
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Sign Out'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.statusError,
+                            side: const BorderSide(
+                              color: AppColors.statusError,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

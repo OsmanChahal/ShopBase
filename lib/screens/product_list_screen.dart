@@ -1,3 +1,4 @@
+import 'package:crm_pos/providers/inventory_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
@@ -38,18 +39,14 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   }
 
   void _navigateToAddProduct() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ProductFormScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ProductFormScreen()));
   }
 
   void _navigateToEditProduct(Product product) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ProductFormScreen(product: product),
-      ),
+      MaterialPageRoute(builder: (_) => ProductFormScreen(product: product)),
     );
   }
 
@@ -163,21 +160,27 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline_rounded,
-                          size: 56, color: AppColors.statusError),
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        size: 56,
+                        color: AppColors.statusError,
+                      ),
                       const SizedBox(height: 16),
                       const Text(
                         'Failed to load products',
                         style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         error.toString().replaceAll('Exception: ', ''),
                         style: const TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary),
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),
@@ -198,13 +201,18 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.search_off_rounded,
-                              size: 56, color: AppColors.inactiveGray),
+                          const Icon(
+                            Icons.search_off_rounded,
+                            size: 56,
+                            color: AppColors.inactiveGray,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'No products match "$query"',
                             style: const TextStyle(
-                                fontSize: 14, color: AppColors.textSecondary),
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -220,7 +228,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                           Icon(
                             Icons.inventory_2_outlined,
                             size: 72,
-                            color: AppColors.primaryPurple.withValues(alpha: 0.3),
+                            color: AppColors.primaryPurple.withValues(
+                              alpha: 0.3,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           const Text(
@@ -261,8 +271,12 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         product: product,
                         currencyRate: rate,
                         layout: ProductCardLayout.list,
-                        onTap: canEditInventory ? () => _navigateToEditProduct(product) : null,
-                        onLongPress: canEditInventory ? () => _showStockAdjustDialog(product) : null,
+                        onTap: canEditInventory
+                            ? () => _navigateToEditProduct(product)
+                            : null,
+                        onLongPress: canEditInventory
+                            ? () => _showStockAdjustDialog(product)
+                            : null,
                       );
                     },
                   ),

@@ -244,6 +244,7 @@ class SyncOrchestrator {
 }
 
 final syncOrchestratorProvider = Provider<SyncOrchestrator>((ref) {
+  ref.watch(currentBusinessProvider.select((b) => b?.id));
   final orchestrator = SyncOrchestrator(ref);
   ref.onDispose(() => orchestrator.dispose());
   return orchestrator;
