@@ -4,6 +4,7 @@ import '../database/database_provider.dart';
 import '../database/local_product_repository.dart';
 import '../database/sync_queue_repository.dart';
 import '../models/product.dart';
+import 'inventory_provider.dart';
 import 'auth_provider.dart';
 
 /// Provides the SyncQueueRepository instance (shared across repos).
@@ -25,11 +26,16 @@ final productListProvider = FutureProvider<List<Product>>((ref) async {
   final business = ref.watch(currentBusinessProvider);
   if (business == null) return [];
 
+  final inventoryId = await ref.watch(currentInventoryIdProvider.future); // NEW
   final repo = ref.watch(localProductRepositoryProvider);
-  final localProducts = await repo.getProducts(business.id);
 
-  // Convert LocalProduct (drift row) → Product (app model)
-  return localProducts.map(_localProductToModel).toList();
+  if (inventoryId == null) {
+    // No inventories pulled yet (offline right after upgrade): legacy read
+    final localProducts = await repo.getProducts(business.id);
+    return localProducts.map(_localProductToModel).toList();
+  }
+  final rows = await repo.getProductsForInventory(business.id, inventoryId);
+  return rows.map(_joinedToModel).toList();
 });
 
 /// pROVIDER FOR THE CATEGORIES LIST
@@ -70,8 +76,20 @@ class ProductActions {
 
   LocalProductRepository get _repo => ref.read(localProductRepositoryProvider);
 
+  Future<String?> _currentInventory() =>
+      ref.read(currentInventoryIdProvider.future);
+
+  Future<Product> _load(String id, String? inventoryId) async {
+    if (inventoryId != null) {
+      final joined = await _repo.getProductWithStock(id, inventoryId);
+      if (joined != null) return _joinedToModel(joined);
+    }
+    return _localProductToModel((await _repo.getProductById(id))!);
+  }
+
   Future<Product> addProduct(Product product) async {
-    final result = await _repo.addProduct(
+    final inventoryId = product.inventoryId ?? await _currentInventory();
+    final id = await _repo.addProduct(
       businessId: product.businessId,
       name: product.name,
       sku: product.sku,
@@ -80,13 +98,16 @@ class ProductActions {
       sellPriceUsd: product.sellPriceUsd,
       quantity: product.quantity,
       lowStockThreshold: product.lowStockThreshold,
+      inventoryId: inventoryId,
     );
     ref.invalidate(productListProvider);
-    return _localProductToModel(result);
+    return _load(id, inventoryId);
   }
 
   Future<Product> updateProduct(Product product) async {
-    final result = await _repo.updateProduct(
+    // Use the inventory this product was loaded from, not whatever is selected now
+    final inventoryId = product.inventoryId ?? await _currentInventory();
+    await _repo.updateProduct(
       id: product.id!,
       businessId: product.businessId,
       name: product.name,
@@ -95,9 +116,10 @@ class ProductActions {
       costPriceUsd: product.costPriceUsd,
       sellPriceUsd: product.sellPriceUsd,
       lowStockThreshold: product.lowStockThreshold,
+      inventoryId: inventoryId,
     );
     ref.invalidate(productListProvider);
-    return _localProductToModel(result);
+    return _load(product.id!, inventoryId);
   }
 
   Future<void> deleteProduct(String productId) async {
@@ -105,10 +127,15 @@ class ProductActions {
     ref.invalidate(productListProvider);
   }
 
-  Future<Product> adjustStock(String productId, int delta) async {
-    final result = await _repo.adjustStock(productId, delta);
+  Future<Product> adjustStock(
+    String productId,
+    int delta, {
+    String? inventoryId,
+  }) async {
+    final inv = inventoryId ?? await _currentInventory();
+    await _repo.adjustStock(productId, delta, inventoryId: inv);
     ref.invalidate(productListProvider);
-    return _localProductToModel(result);
+    return _load(productId, inv);
   }
 }
 
@@ -130,5 +157,22 @@ Product _localProductToModel(LocalProduct lp) {
     quantity: lp.quantity,
     lowStockThreshold: lp.lowStockThreshold,
     updatedAt: lp.updatedAt,
+  );
+}
+
+/// NEW: catalog + per-inventory stock -> app model
+Product _joinedToModel(ProductWithStock ps) {
+  return Product(
+    id: ps.product.id,
+    inventoryId: ps.stock.inventoryId,
+    businessId: ps.product.businessId,
+    name: ps.product.name,
+    sku: ps.product.sku,
+    category: ps.product.category,
+    costPriceUsd: ps.stock.costPriceUsd,
+    sellPriceUsd: ps.stock.sellPriceUsd,
+    quantity: ps.stock.quantity,
+    lowStockThreshold: ps.stock.lowStockThreshold,
+    updatedAt: ps.stock.updatedAt ?? ps.product.updatedAt,
   );
 }

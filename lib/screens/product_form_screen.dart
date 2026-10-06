@@ -157,6 +157,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         // stock changes go through the stock adjust dialog.
         final product = Product(
           id: widget.product!.id,
+          inventoryId: widget.product!.inventoryId,
           businessId: business.id,
           name: _nameController.text.trim(),
           sku: _skuController.text.trim().isEmpty

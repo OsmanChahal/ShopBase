@@ -55,6 +55,12 @@ class SyncEngine {
           case 'customer_delete':
             await _handleCustomerDelete(payload);
             break;
+          case 'product_catalog_update':
+            await _handleProductCatalogUpdate(payload);
+            break;
+          case 'stock_prices_update':
+            await _handleStockPricesUpdate(payload);
+            break;
           default:
             dev.log(
               '[SyncEngine Push] Unknown operation type: ${entry.operationType}',
@@ -83,18 +89,53 @@ class SyncEngine {
     }
   }
 
+  Future<void> _handleProductCatalogUpdate(Map<String, dynamic> payload) async {
+    final id = payload['id'] as String;
+    final map = Map<String, dynamic>.from(payload)..remove('id');
+    await _supabase.from('products').update(map).eq('id', id);
+  }
+
+  Future<void> _handleStockPricesUpdate(Map<String, dynamic> payload) async {
+    await _supabase.rpc(
+      'set_stock_prices',
+      params: {
+        'p_product_id': payload['product_id'],
+        'p_inventory_id': payload['inventory_id'],
+        'p_sell': payload['sell_price_usd'],
+        'p_cost': payload['cost_price_usd'],
+        'p_threshold': payload['low_stock_threshold'],
+      },
+    );
+  }
+
   Future<void> _handleStockAdjustment(Map<String, dynamic> payload) async {
     final productId = payload['product_id'] as String;
     final delta = payload['delta'] as int;
     final operationId = payload['operation_id'] as String;
-    await _supabase.rpc(
-      'adjust_stock',
-      params: {
-        'p_product_id': productId,
-        'p_delta': delta,
-        'p_operation_id': operationId,
-      },
-    );
+    final inventoryId = payload['inventory_id'] as String?;
+
+    if (inventoryId == null) {
+      // Operations queued by the old app version: routed to Main by the server
+      await _supabase.rpc(
+        'adjust_stock',
+        params: {
+          'p_product_id': productId,
+          'p_delta': delta,
+          'p_operation_id': operationId,
+        },
+      );
+    } else {
+      await _supabase.rpc(
+        'adjust_stock',
+        params: {
+          'p_product_id': productId,
+          'p_inventory_id': inventoryId,
+          'p_delta': delta,
+          'p_operation_id': operationId,
+          'p_reason': payload['reason'] as String? ?? 'adjustment',
+        },
+      );
+    }
   }
 
   Future<void> _handleSale(Map<String, dynamic> payload) async {
@@ -116,14 +157,28 @@ class SyncEngine {
       final productId = delta['product_id'] as String;
       final qtyDelta = delta['delta'] as int;
       final operationId = delta['operation_id'] as String;
-      await _supabase.rpc(
-        'adjust_stock',
-        params: {
-          'p_product_id': productId,
-          'p_delta': qtyDelta,
-          'p_operation_id': operationId,
-        },
-      );
+      final inventoryId = delta['inventory_id'] as String?;
+      if (inventoryId == null) {
+        await _supabase.rpc(
+          'adjust_stock',
+          params: {
+            'p_product_id': productId,
+            'p_delta': qtyDelta,
+            'p_operation_id': operationId,
+          },
+        );
+      } else {
+        await _supabase.rpc(
+          'adjust_stock',
+          params: {
+            'p_product_id': productId,
+            'p_inventory_id': inventoryId,
+            'p_delta': qtyDelta,
+            'p_operation_id': operationId,
+            'p_reason': delta['reason'] as String? ?? 'sale',
+          },
+        );
+      }
     }
   }
 

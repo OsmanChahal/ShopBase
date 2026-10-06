@@ -61,7 +61,11 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
     try {
       await ref
           .read(productActionsProvider)
-          .adjustStock(widget.product.id!, _delta);
+          .adjustStock(
+            widget.product.id!,
+            _delta,
+            inventoryId: widget.product.inventoryId,
+          );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,9 +81,7 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              e.toString().replaceAll('Exception: ', ''),
-            ),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -155,8 +157,8 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
                 color: !isValid
                     ? theme.colorScheme.error
                     : _newQuantity <= widget.product.lowStockThreshold
-                        ? const Color(0xFFF59E0B) // Amber 500
-                        : const Color(0xFF16A34A), // Green 600
+                    ? const Color(0xFFF59E0B) // Amber 500
+                    : const Color(0xFF16A34A), // Green 600
               ),
             ],
           ),
@@ -170,14 +172,8 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
                 label: '-10',
                 onTap: () => _updateDelta(_delta - 10),
               ),
-              _QuickButton(
-                label: '-5',
-                onTap: () => _updateDelta(_delta - 5),
-              ),
-              _QuickButton(
-                label: '-1',
-                onTap: () => _updateDelta(_delta - 1),
-              ),
+              _QuickButton(label: '-5', onTap: () => _updateDelta(_delta - 5)),
+              _QuickButton(label: '-1', onTap: () => _updateDelta(_delta - 1)),
               const SizedBox(width: 8),
               // Delta input
               SizedBox(
@@ -185,14 +181,17 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
                 child: TextField(
                   controller: _deltaController,
                   keyboardType: const TextInputType.numberWithOptions(
-                      signed: true),
+                    signed: true,
+                  ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                   decoration: const InputDecoration(
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
+                    ),
                   ),
                   onChanged: (value) {
                     final parsed = int.tryParse(value);
@@ -203,14 +202,8 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
                 ),
               ),
               const SizedBox(width: 8),
-              _QuickButton(
-                label: '+1',
-                onTap: () => _updateDelta(_delta + 1),
-              ),
-              _QuickButton(
-                label: '+5',
-                onTap: () => _updateDelta(_delta + 5),
-              ),
+              _QuickButton(label: '+1', onTap: () => _updateDelta(_delta + 1)),
+              _QuickButton(label: '+5', onTap: () => _updateDelta(_delta + 5)),
               _QuickButton(
                 label: '+10',
                 onTap: () => _updateDelta(_delta + 10),
@@ -306,10 +299,7 @@ class _QuickButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _QuickButton({
-    required this.label,
-    required this.onTap,
-  });
+  const _QuickButton({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -322,8 +312,7 @@ class _QuickButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: isNegative
                 ? const Color(0xFFFEE2E2) // Red 100

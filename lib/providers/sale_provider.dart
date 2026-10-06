@@ -1,3 +1,4 @@
+import 'inventory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 import '../database/database_provider.dart';
@@ -62,23 +63,41 @@ class SaleActions {
       throw Exception('Cart is empty');
     }
 
-    // 1. Validate stock against local_products
+    final inventoryId = await ref.read(
+      currentInventoryIdProvider.future,
+    ); // NEW
+
+    // 1. Validate stock against the current inventory (legacy fallback if none)
     for (final item in cartItems) {
-      final product = await _productRepo.getProductById(item.productId);
-      if (product == null) {
-        throw Exception('Product "${item.productName}" no longer exists');
+      int available;
+      if (inventoryId != null) {
+        final stock = await _productRepo.getStockRow(
+          item.productId,
+          inventoryId,
+        );
+        if (stock == null) {
+          throw Exception(
+            '"${item.productName}" is not stocked in this inventory',
+          );
+        }
+        available = stock.quantity;
+      } else {
+        final product = await _productRepo.getProductById(item.productId);
+        if (product == null) {
+          throw Exception('Product "${item.productName}" no longer exists');
+        }
+        available = product.quantity;
       }
-      if (product.quantity < item.quantity) {
+      if (available < item.quantity) {
         throw Exception(
           'Not enough stock for "${item.productName}". '
-          'Requested: ${item.quantity}, Available: ${product.quantity}',
+          'Requested: ${item.quantity}, Available: $available',
         );
       }
     }
 
     // 2. Calculate totals using effective prices (respects overrides/discounts)
-    final totalUsd =
-        cartItems.fold(0.0, (sum, item) => sum + item.subtotalUsd);
+    final totalUsd = cartItems.fold(0.0, (sum, item) => sum + item.subtotalUsd);
     final totalLbp = totalUsd * exchangeRate;
 
     // 3. Build items and stock deltas
@@ -93,10 +112,7 @@ class SaleActions {
     }).toList();
 
     final stockDeltas = cartItems.map((item) {
-      return {
-        'productId': item.productId,
-        'delta': -item.quantity,
-      };
+      return {'productId': item.productId, 'delta': -item.quantity};
     }).toList();
 
     // 4. Create the sale (transaction: sale + items + stock decrements + enqueue)
@@ -109,6 +125,7 @@ class SaleActions {
       paymentType: paymentType,
       items: items,
       stockDeltas: stockDeltas,
+      inventoryId: inventoryId,
     );
 
     // 5. Invalidate providers to refresh UI
