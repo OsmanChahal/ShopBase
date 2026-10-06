@@ -11,6 +11,7 @@ import '../providers/sale_provider.dart';
 import '../theme/app_colors.dart';
 import 'connectivity_service.dart';
 import 'sync_engine.dart';
+import '../providers/inventory_provider.dart';
 
 final isOnlineProvider = StateProvider<bool>((ref) => true);
 final isSyncingProvider = StateProvider<bool>((ref) => false);
@@ -231,6 +232,8 @@ class SyncOrchestrator {
     _ref.invalidate(productListProvider);
     _ref.invalidate(customerListProvider);
     _ref.invalidate(salesListProvider);
+    _ref.invalidate(accessibleInventoriesProvider);
+    _ref.invalidate(posInventoriesProvider);
   }
 
   void dispose() {

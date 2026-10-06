@@ -6,6 +6,13 @@ import 'sync_queue_repository.dart';
 
 const _uuid = Uuid();
 
+/// NEW: a catalog row joined with its stock row for one inventory.
+class ProductWithStock {
+  final LocalProduct product;
+  final LocalStockRow stock;
+  const ProductWithStock(this.product, this.stock);
+}
+
 /// Repository for product CRUD against the local SQLite database.
 /// Every mutation enqueues the corresponding operation into the sync queue.
 class LocalProductRepository {
@@ -20,6 +27,29 @@ class LocalProductRepository {
           ..where((t) => t.businessId.equals(businessId))
           ..orderBy([(t) => OrderingTerm.asc(t.name)]))
         .get();
+  }
+
+  /// NEW: catalog JOIN stock for one inventory. A product appears here only if
+  /// it has a stock row in that inventory. Not used by the UI until 3.3b.
+  Future<List<ProductWithStock>> getProductsForInventory(
+    String businessId,
+    String inventoryId,
+  ) async {
+    final p = _db.localProducts;
+    final s = _db.localInventoryStock;
+    final query =
+        _db.select(p).join([
+            innerJoin(
+              s,
+              s.productId.equalsExp(p.id) & s.inventoryId.equals(inventoryId),
+            ),
+          ])
+          ..where(p.businessId.equals(businessId))
+          ..orderBy([OrderingTerm.asc(p.name)]);
+    final rows = await query.get();
+    return rows
+        .map((r) => ProductWithStock(r.readTable(p), r.readTable(s)))
+        .toList();
   }
 
   /// Fetch a single product by ID.
