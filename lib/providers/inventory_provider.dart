@@ -1,4 +1,5 @@
 import 'dart:developer' as dev;
+import 'package:crm_pos/providers/product_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,4 +111,63 @@ final currentInventoryIdProvider = FutureProvider<String?>((ref) async {
     '[Inventory] current inventory = $id (of ${list.length})',
   ); // TEMPORARY
   return id;
+});
+
+/// The inventory the app is working in (null until inventories are pulled).
+final currentInventoryProvider = FutureProvider<LocalInventory?>((ref) async {
+  final id = await ref.watch(currentInventoryIdProvider.future);
+  final list = await ref.watch(accessibleInventoriesProvider.future);
+  for (final i in list) {
+    if (i.id == id) return i;
+  }
+  return null;
+});
+
+/// The oldest inventory of the business = "Main" (shown with a Primary badge).
+final primaryInventoryIdProvider = FutureProvider<String?>((ref) async {
+  final business = ref.watch(currentBusinessProvider);
+  if (business == null) return null;
+  final db = ref.watch(appDatabaseProvider);
+  final rows =
+      await (db.select(db.localInventories)
+            ..where((t) => t.businessId.equals(business.id))
+            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
+            ..limit(1))
+          .get();
+  return rows.isEmpty ? null : rows.first.id;
+});
+
+class InventorySummary {
+  final LocalInventory inventory;
+  final int products;
+  final int units;
+  final int lowStock;
+  const InventorySummary(
+    this.inventory,
+    this.products,
+    this.units,
+    this.lowStock,
+  );
+}
+
+/// Per-inventory totals for the switcher sheet.
+final inventorySummariesProvider = FutureProvider<List<InventorySummary>>((
+  ref,
+) async {
+  ref.watch(productListProvider); // recompute whenever stock changes
+  final list = await ref.watch(accessibleInventoriesProvider.future);
+  if (list.isEmpty) return [];
+  final db = ref.watch(appDatabaseProvider);
+  final rows = await (db.select(
+    db.localInventoryStock,
+  )..where((t) => t.inventoryId.isIn(list.map((i) => i.id).toList()))).get();
+  return list.map((inv) {
+    final mine = rows.where((r) => r.inventoryId == inv.id);
+    return InventorySummary(
+      inv,
+      mine.length,
+      mine.fold<int>(0, (a, r) => a + r.quantity),
+      mine.where((r) => r.quantity <= r.lowStockThreshold).length,
+    );
+  }).toList();
 });

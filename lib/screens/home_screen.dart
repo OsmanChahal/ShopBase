@@ -96,42 +96,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final canViewDashboard = ref.watch(hasPermissionProvider('view_dashboard'));
     final canUsePos = ref.watch(hasPermissionProvider('use_pos'));
     final canViewInventory = ref.watch(hasPermissionProvider('view_inventory'));
-    final canManageCustomers = ref.watch(hasPermissionProvider('manage_customers'));
+    final canManageCustomers = ref.watch(
+      hasPermissionProvider('manage_customers'),
+    );
 
     final List<Widget> availableScreens = [];
     final List<BottomNavigationBarItem> availableItems = [];
 
     if (canViewDashboard) {
       availableScreens.add(const DashboardScreen());
-      availableItems.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.dashboard_outlined),
-        activeIcon: Icon(Icons.dashboard),
-        label: 'Dashboard',
-      ));
+      availableItems.add(
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard_outlined),
+          activeIcon: Icon(Icons.dashboard),
+          label: 'Dashboard',
+        ),
+      );
     }
     if (canUsePos) {
       availableScreens.add(const PosScreen());
-      availableItems.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.point_of_sale_outlined),
-        activeIcon: Icon(Icons.point_of_sale),
-        label: 'POS',
-      ));
+      availableItems.add(
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.point_of_sale_outlined),
+          activeIcon: Icon(Icons.point_of_sale),
+          label: 'POS',
+        ),
+      );
     }
     if (canViewInventory) {
       availableScreens.add(const ProductListScreen());
-      availableItems.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.inventory_2_outlined),
-        activeIcon: Icon(Icons.inventory_2),
-        label: 'Inventory',
-      ));
+      availableItems.add(
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.inventory_2_outlined),
+          activeIcon: Icon(Icons.inventory_2),
+          label: 'Inventory',
+        ),
+      );
     }
     if (canManageCustomers) {
       availableScreens.add(const CustomerListScreen());
-      availableItems.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.people_outline),
-        activeIcon: Icon(Icons.people),
-        label: 'Customers',
-      ));
+      availableItems.add(
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.people_outline),
+          activeIcon: Icon(Icons.people),
+          label: 'Customers',
+        ),
+      );
     }
 
     int activeIndex = _currentIndex;
@@ -151,11 +161,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Text(
                 'Setting up local database...',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.6),
-                    ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
               ),
             ],
           ),
@@ -172,9 +181,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.cloud_off,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.error),
+                Icon(
+                  Icons.cloud_off,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
                 const SizedBox(height: 16),
                 const Text(
                   'Failed to set up local database',
@@ -186,10 +197,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _pullError!,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -234,10 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return Scaffold(
-      body: IndexedStack(
-        index: activeIndex,
-        children: availableScreens,
-      ),
+      body: IndexedStack(index: activeIndex, children: availableScreens),
       bottomNavigationBar: availableItems.length > 1
           ? BottomNavigationBar(
               currentIndex: activeIndex,
