@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'dart:developer' as dev;
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +11,15 @@ class SyncEngine {
   final SyncQueueRepository _queueRepo;
   final SupabaseClient _supabase;
   final AppDatabase _db;
+
+  bool _needsStockReconcile = true;
+  final List<String> _rejections = [];
+
+  List<String> takeRejections() {
+    final out = List<String>.from(_rejections);
+    _rejections.clear();
+    return out;
+  }
 
   SyncEngine(this._queueRepo, this._supabase, this._db);
 
@@ -26,25 +37,52 @@ class SyncEngine {
     final entries = await _queueRepo.getProcessableEntries();
     if (entries.isEmpty) {
       dev.log('[SyncEngine Push] No pending operations to push.');
+      await _queueRepo.deleteOldFinished();
       return;
     }
 
-    dev.log(
-      '[SyncEngine Push] Processing ${entries.length} pending operations.',
-    );
+    dev.log('[SyncEngine Push] Processing ${entries.length} operations.');
 
     for (final entry in entries) {
+      Map<String, dynamic>? payload;
       try {
-        final payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+        payload = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
         switch (entry.operationType) {
           case 'product_upsert':
             await _handleProductUpsert(payload);
+            break;
+          case 'product_catalog_update':
+            await _handleProductCatalogUpdate(payload);
             break;
           case 'product_delete':
             await _handleProductDelete(payload);
             break;
           case 'stock_adjustment':
             await _handleStockAdjustment(payload);
+            break;
+          case 'stock_prices_update':
+            await _handleStockPricesUpdate(payload);
+            break;
+          case 'stock_transfer': // NEW
+            await _handleStockTransfer(payload);
+            break;
+          case 'inventory_upsert': // NEW
+            await _supabase.from('inventories').upsert(payload);
+            break;
+          case 'inventory_archive': // NEW
+            await _handleInventoryArchive(payload);
+            break;
+          case 'inventory_access_upsert': // NEW
+            await _supabase
+                .from('inventory_access')
+                .upsert(payload, onConflict: 'inventory_id,user_id');
+            break;
+          case 'inventory_access_delete': // NEW
+            await _supabase
+                .from('inventory_access')
+                .delete()
+                .eq('inventory_id', payload['inventory_id'])
+                .eq('user_id', payload['user_id']);
             break;
           case 'sale':
             await _handleSale(payload);
@@ -55,24 +93,124 @@ class SyncEngine {
           case 'customer_delete':
             await _handleCustomerDelete(payload);
             break;
-          case 'product_catalog_update':
-            await _handleProductCatalogUpdate(payload);
-            break;
-          case 'stock_prices_update':
-            await _handleStockPricesUpdate(payload);
-            break;
           default:
             dev.log(
-              '[SyncEngine Push] Unknown operation type: ${entry.operationType}',
+              '[SyncEngine Push] Unknown operation: ${entry.operationType}',
             );
         }
         await _queueRepo.markSynced(entry.id);
       } catch (e, st) {
         dev.log(
-          '[SyncEngine Push] Failed to process entry ${entry.id}: $e\n$st',
+          '[SyncEngine Push] ${entry.operationType} ${entry.id}: $e\n$st',
         );
-        await _queueRepo.markFailed(entry.id, e.toString());
+        if (_isTransient(e)) {
+          // Offline / session refresh: keep it pending, keep the order, stop here.
+          await _queueRepo.noteTransientError(entry.id, e.toString());
+          break;
+        } else if (_isPermanent(e)) {
+          final msg = _friendly(e);
+          await _queueRepo.markRejected(entry.id, msg);
+          _rejections.add(msg);
+          await _compensate(entry.operationType, payload);
+        } else {
+          await _queueRepo.markFailed(entry.id, e.toString());
+        }
       }
+    }
+    await _queueRepo.deleteOldFinished();
+  }
+
+  // ── NEW: failure handling ──────────────────────────────────────────────────
+
+  bool _isTransient(Object e) {
+    if (e is SocketException || e is TimeoutException || e is AuthException) {
+      return true;
+    }
+    final t = e.runtimeType.toString();
+    return t.contains('ClientException') || t.contains('HandshakeException');
+  }
+
+  /// The server understood the request and said no (RAISE EXCEPTION, RLS,
+  /// unique violation, check violation).
+  bool _isPermanent(Object e) =>
+      e is PostgrestException &&
+      const {'P0001', '42501', '23505', '23514', '22023'}.contains(e.code);
+
+  String _friendly(Object e) {
+    if (e is PostgrestException) {
+      if (e.code == '42501') return "You don't have permission for this change";
+      if (e.code == '23505') return 'That already exists';
+      return e.message;
+    }
+    return e.toString();
+  }
+
+  /// Undo the local optimistic effect of an operation the server refused.
+  Future<void> _compensate(String type, Map<String, dynamic>? payload) async {
+    switch (type) {
+      case 'stock_adjustment':
+      case 'stock_prices_update':
+      case 'sale':
+        _needsStockReconcile = true;
+        break;
+      case 'stock_transfer':
+        _needsStockReconcile = true;
+        final id = payload?['transfer_id'] as String?;
+        if (id != null) {
+          await _db.transaction(() async {
+            await (_db.delete(
+              _db.localStockTransferItems,
+            )..where((t) => t.transferId.equals(id))).go();
+            await (_db.delete(
+              _db.localStockTransfers,
+            )..where((t) => t.id.equals(id))).go();
+          });
+        }
+        break;
+      case 'inventory_upsert':
+      case 'inventory_archive':
+        final id = (payload?['id'] ?? payload?['inventory_id']) as String?;
+        if (id != null) await _restoreInventoryFromServer(id);
+        break;
+    }
+  }
+
+  Future<void> _restoreInventoryFromServer(String id) async {
+    try {
+      final j = await _supabase
+          .from('inventories')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (j == null) {
+        // Never existed on the server (e.g. refused create): remove locally
+        await _db.transaction(() async {
+          await (_db.delete(
+            _db.localInventoryStock,
+          )..where((t) => t.inventoryId.equals(id))).go();
+          await (_db.delete(
+            _db.localInventoryAccess,
+          )..where((t) => t.inventoryId.equals(id))).go();
+          await (_db.delete(
+            _db.localInventories,
+          )..where((t) => t.id.equals(id))).go();
+        });
+      } else {
+        await _db
+            .into(_db.localInventories)
+            .insertOnConflictUpdate(
+              LocalInventoriesCompanion.insert(
+                id: id,
+                businessId: j['business_id'] as String,
+                name: j['name'] as String,
+                isArchived: Value(j['is_archived'] as bool? ?? false),
+                createdAt: DateTime.parse(j['created_at'] as String),
+                updatedAt: Value(DateTime.parse(j['updated_at'] as String)),
+              ),
+            );
+      }
+    } catch (e) {
+      dev.log('[SyncEngine] could not restore inventory $id: $e');
     }
   }
 
@@ -105,6 +243,27 @@ class SyncEngine {
         'p_cost': payload['cost_price_usd'],
         'p_threshold': payload['low_stock_threshold'],
       },
+    );
+  }
+
+  Future<void> _handleStockTransfer(Map<String, dynamic> p) async {
+    await _supabase.rpc(
+      'transfer_stock',
+      params: {
+        'p_transfer_id': p['transfer_id'],
+        'p_from': p['from_inventory_id'],
+        'p_to': p['to_inventory_id'],
+        'p_items': p['items'],
+      },
+    );
+  }
+
+  Future<void> _handleInventoryArchive(Map<String, dynamic> p) async {
+    await _supabase.rpc(
+      (p['archive'] as bool? ?? true)
+          ? 'archive_inventory'
+          : 'unarchive_inventory',
+      params: {'p_inventory_id': p['inventory_id']},
     );
   }
 
@@ -204,18 +363,13 @@ class SyncEngine {
 
     await _pullInventories(businessId, overlapSince);
     await _pullProducts(businessId, lastPullAt);
-    await _pullInventoryStock(businessId, overlapSince);
+    final reconcile =
+        _needsStockReconcile && (await _queueRepo.getProcessableCount()) == 0;
+    await _pullInventoryStock(businessId, overlapSince, reconcile: reconcile);
+    if (reconcile) _needsStockReconcile = false;
     await _pullInventoryAccess();
     await _pullTransfers(businessId, overlapSince);
     await _pullCustomers(businessId, lastPullAt);
-
-    dev.log(
-      '[SyncEngine Pull] local inventories='
-      '${(await _db.select(_db.localInventories).get()).length}, '
-      'stock=${(await _db.select(_db.localInventoryStock).get()).length}, '
-      'access=${(await _db.select(_db.localInventoryAccess).get()).length}, '
-      'transfers=${(await _db.select(_db.localStockTransfers).get()).length}',
-    );
 
     await _updateLastPullAt(businessId, now);
   }
@@ -424,7 +578,11 @@ class SyncEngine {
     });
   }
 
-  Future<void> _pullInventoryStock(String businessId, DateTime? since) async {
+  Future<void> _pullInventoryStock(
+    String businessId,
+    DateTime? since, {
+    bool reconcile = false,
+  }) async {
     final inventoryIds =
         (await (_db.select(
               _db.localInventories,
@@ -438,11 +596,15 @@ class SyncEngine {
           .from('inventory_stock')
           .select()
           .inFilter('inventory_id', inventoryIds);
-      if (since != null) q = q.gt('updated_at', since.toIso8601String());
+      if (!reconcile && since != null) {
+        q = q.gt('updated_at', since.toIso8601String());
+      }
       return q;
     }, ['product_id', 'inventory_id']);
-    if (rows.isEmpty) return;
-    dev.log('[SyncEngine Pull] Pulled ${rows.length} stock rows.');
+    if (rows.isEmpty) return; // never delete everything on an empty answer
+    dev.log(
+      '[SyncEngine Pull] ${rows.length} stock rows (reconcile=$reconcile).',
+    );
 
     await _db.transaction(() async {
       for (final j in rows) {
@@ -477,9 +639,10 @@ class SyncEngine {
                 ),
               );
         } else {
-          // Same rule as products: quantity = server value (authoritative after
-          // the push); prices/threshold = last-write-wins on updatedAt.
+          // Reconcile = server is the truth (queue is empty). Otherwise:
+          // quantity = server value, prices = last-write-wins.
           final updateFields =
+              reconcile ||
               local.updatedAt == null ||
               serverUpdatedAt.isAfter(local.updatedAt!);
           await (_db.update(_db.localInventoryStock)..where(
@@ -504,6 +667,27 @@ class SyncEngine {
                       : const Value.absent(),
                 ),
               );
+        }
+      }
+
+      if (reconcile) {
+        // Drop local stock rows the server doesn't have (rejected transfers
+        // into a new inventory, products deleted on another device...)
+        final serverKeys = rows
+            .map((j) => '${j['product_id']}|${j['inventory_id']}')
+            .toSet();
+        final locals = await (_db.select(
+          _db.localInventoryStock,
+        )..where((t) => t.inventoryId.isIn(inventoryIds))).get();
+        for (final l in locals) {
+          if (!serverKeys.contains('${l.productId}|${l.inventoryId}')) {
+            await (_db.delete(_db.localInventoryStock)..where(
+                  (t) =>
+                      t.productId.equals(l.productId) &
+                      t.inventoryId.equals(l.inventoryId),
+                ))
+                .go();
+          }
         }
       }
     });

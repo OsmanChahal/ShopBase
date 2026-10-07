@@ -50,11 +50,68 @@ class SyncQueueRepository {
         .get();
   }
 
+  static const int maxRetries = 5;
+
   Future<List<SyncQueueEntry>> getProcessableEntries() async {
     return (_db.select(_db.syncQueueEntries)
-          ..where((t) => t.status.isIn(['pending', 'failed']))
+          ..where(
+            (t) =>
+                t.status.equals('pending') |
+                (t.status.equals('failed') &
+                    t.retryCount.isSmallerThanValue(maxRetries)),
+          )
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
+  }
+
+  Future<int> getProcessableCount() async {
+    final t = _db.syncQueueEntries;
+    final count = countAll();
+    final query = _db.selectOnly(t)
+      ..addColumns([count])
+      ..where(
+        t.status.equals('pending') |
+            (t.status.equals('failed') &
+                t.retryCount.isSmallerThanValue(maxRetries)),
+      );
+    final result = await query.getSingle();
+    return result.read(count) ?? 0;
+  }
+
+  // NEW: the server permanently refused this operation.
+  Future<void> markRejected(String id, String error) async {
+    await (_db.update(
+      _db.syncQueueEntries,
+    )..where((t) => t.id.equals(id))).write(
+      SyncQueueEntriesCompanion(
+        status: const Value('rejected'),
+        lastError: Value(error),
+      ),
+    );
+  }
+
+  // NEW: network/auth problem. Stays pending, retry count untouched.
+  Future<void> noteTransientError(String id, String error) async {
+    await (_db.update(_db.syncQueueEntries)..where((t) => t.id.equals(id)))
+        .write(SyncQueueEntriesCompanion(lastError: Value(error)));
+  }
+
+  // NEW: housekeeping.
+  Future<void> deleteOldFinished() async {
+    final now = DateTime.now().toUtc();
+    final t = _db.syncQueueEntries;
+    await (_db.delete(t)..where(
+          (r) =>
+              (r.status.equals('synced') &
+                  r.createdAt.isSmallerThanValue(
+                    now.subtract(const Duration(days: 1)),
+                  )) |
+              (r.status.equals('rejected') &
+                  r.createdAt.isSmallerThanValue(
+                    now.subtract(const Duration(days: 7)),
+                  )),
+        ))
+        .go();
   }
 
   Future<bool> hasPendingOrFailed() async {

@@ -156,6 +156,10 @@ class SyncOrchestrator {
           _showSyncSuccessToast();
         }
       }
+
+      // NEW: tell the user when the server refused something
+      final rejections = syncEngine.takeRejections();
+      if (rejections.isNotEmpty) _showRejectedToast(rejections);
     } catch (e, st) {
       dev.log('[SyncOrchestrator] Error during sync: $e\n$st');
       if (showToast) {
@@ -199,6 +203,25 @@ class SyncOrchestrator {
         ),
         duration: Duration(seconds: 3),
         backgroundColor: AppColors.statusSuccess,
+      ),
+    );
+  }
+
+  void _showRejectedToast(List<String> messages) {
+    rootScaffoldMessengerKey.currentState?.clearSnackBars();
+    rootScaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text(
+          messages.length == 1
+              ? 'A change was rejected: ${messages.first}'
+              : '${messages.length} changes were rejected. Last: ${messages.last}',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        duration: const Duration(seconds: 8),
+        backgroundColor: AppColors.statusError,
       ),
     );
   }
