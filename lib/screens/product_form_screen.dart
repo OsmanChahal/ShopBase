@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 import '../widgets/loading_overlay.dart';
 import 'stock_adjust_dialog.dart';
+import '../widgets/transfer_stock_sheet.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   /// If null, we're adding a new product. If non-null, we're editing.
@@ -341,6 +342,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               icon: const Icon(Icons.tune_rounded),
               tooltip: 'Adjust stock',
               onPressed: _showStockAdjustDialog,
+            ),
+            IconButton(
+              icon: const Icon(Icons.swap_horiz_rounded),
+              tooltip: 'Move to another location',
+              onPressed: () async {
+                final ok = await showTransferStockSheet(
+                  context,
+                  fromInventoryId: widget.product!.inventoryId,
+                  productIds: [widget.product!.id!],
+                );
+                // the form's numbers are stale after a transfer, so go back
+                if (ok == true && mounted) Navigator.of(context).pop();
+              },
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
