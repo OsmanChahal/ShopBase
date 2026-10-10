@@ -62,7 +62,9 @@ final filteredProductListProvider = Provider<AsyncValue<List<Product>>>((ref) {
         .where(
           (p) =>
               p.name.toLowerCase().contains(query) ||
-              (p.category != null && p.category!.toLowerCase().contains(query)),
+              (p.category != null &&
+                  p.category!.toLowerCase().contains(query)) ||
+              (p.sku != null && p.sku!.toLowerCase().contains(query)),
         )
         .toList();
   });

@@ -13,6 +13,8 @@ import '../widgets/inventory_ui_helpers.dart';
 import '../widgets/transfer_stock_sheet.dart';
 import 'product_form_screen.dart';
 import 'stock_adjust_dialog.dart';
+import 'add_location_screen.dart';
+import 'manage_locations_screen.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -80,7 +82,18 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
   Future<void> _openSwitcher() async {
     final result = await showInventorySwitcher(context);
-    if (result == 'transfer' && mounted) await _openTransfer(const []);
+    if (!mounted) return;
+    if (result == 'transfer') {
+      await _openTransfer(const []);
+    } else if (result == 'manage') {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ManageLocationsScreen()));
+    } else if (result == 'add') {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const AddLocationScreen()));
+    }
   }
 
   @override
@@ -450,7 +463,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
             _Pill(
               label: '+ Add',
               accent: true,
-              onTap: () => promptCreateInventory(context, ref),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddLocationScreen()),
+              ),
             ),
         ],
       ),

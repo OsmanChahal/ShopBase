@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
-import '../providers/inventory_actions_provider.dart';
 import '../providers/inventory_provider.dart';
 import '../theme/app_colors.dart';
 import 'transfer_stock_sheet.dart';
@@ -71,45 +70,6 @@ class _SheetState extends ConsumerState<InventorySwitcherSheet> {
     }
     await ref.read(selectedInventoryIdProvider.notifier).select(inv.id);
     if (mounted) Navigator.of(context).pop();
-  }
-
-  Future<void> _addLocation() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New warehouse / branch'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'e.g. Downtown Branch'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (name == null || name.isEmpty) return;
-    try {
-      await ref.read(inventoryActionsProvider).create(name);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.statusError,
-        ),
-      );
-    }
   }
 
   @override
@@ -269,37 +229,38 @@ class _SheetState extends ConsumerState<InventorySwitcherSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // TODO(backend/UI): enable once transferStockScreen is built.
-                  // Backend (transferStock + sync) is ready.
                   Opacity(
-                    opacity: 0.45,
-                    child: Tooltip(
-                      message: 'Coming soon',
+                    opacity: isAdmin ? 1 : 0.45,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: isAdmin
+                          ? () => Navigator.of(context).pop('manage')
+                          : null,
                       child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primaryPurple, _accent],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0xFFF3E8FF),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.swap_horiz_rounded,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                            SizedBox(width: 8),
                             Text(
-                              'Transfer Stock Between Locations',
+                              'Manage',
                               style: TextStyle(
-                                color: Colors.white,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                fontSize: 14,
+                                color: _accent,
                               ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 16,
+                              color: _accent,
                             ),
                           ],
                         ),
@@ -314,7 +275,9 @@ class _SheetState extends ConsumerState<InventorySwitcherSheet> {
                       borderRadius: BorderRadius.circular(16),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
-                        onTap: isAdmin ? _addLocation : null,
+                        onTap: isAdmin
+                            ? () => Navigator.of(context).pop('add')
+                            : null,
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 13),

@@ -171,3 +171,19 @@ final inventorySummariesProvider = FutureProvider<List<InventorySummary>>((
     );
   }).toList();
 });
+
+/// Archived locations (for the Manage screen's Restore list).
+final archivedInventoriesProvider = FutureProvider<List<LocalInventory>>((
+  ref,
+) async {
+  ref.watch(accessibleInventoriesProvider); // refresh when inventories change
+  final business = ref.watch(currentBusinessProvider);
+  if (business == null) return [];
+  final db = ref.watch(appDatabaseProvider);
+  return (db.select(db.localInventories)
+        ..where(
+          (t) => t.businessId.equals(business.id) & t.isArchived.equals(true),
+        )
+        ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+      .get();
+});
