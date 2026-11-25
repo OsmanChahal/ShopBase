@@ -18,15 +18,6 @@ String legacyLbpFull(double amount) {
   return buffer.toString().split('').reversed.join();
 }
 
-String legacyLbpShort(double amount) {
-  if (amount >= 1000000) {
-    return '${(amount / 1000000).toStringAsFixed(1)}M';
-  } else if (amount >= 1000) {
-    return '${(amount / 1000).toStringAsFixed(0)}K';
-  }
-  return amount.toStringAsFixed(0);
-}
-
 String legacyPosLbp(double v) => v.round().toString().replaceAllMapped(
       RegExp(r'\B(?=(\d{3})+(?!\d))'),
       (_) => ',',
@@ -68,37 +59,18 @@ void main() {
       expect(formatLbpFull(-999), '-999');
     });
 
+    test('shows large amounts in full at the real exchange rate', () {
+      const rate = 89500.0;
+      expect(formatLbpFull(1 * rate), '89,500');
+      expect(formatLbpFull(100 * rate), '8,950,000');
+      expect(formatLbpFull(1234.56 * rate), '110,493,120');
+      expect(formatLbpFull(25000 * rate), '2,237,500,000');
+      expect(formatLbpFull(150000 * rate), '13,425,000,000');
+    });
+
     test('never shows negative zero', () {
       expect(formatLbpFull(-0.4), '0');
       expect(formatLbpFull(-1), '-1');
-    });
-  });
-
-  group('formatLbpCompact', () {
-    test('matches the legacy implementation except the fixed cases', () {
-      for (final a in amounts.where((a) => a >= 0 && (a < 999500 || a >= 1e6))) {
-        expect(formatLbpCompact(a), legacyLbpShort(a), reason: 'amount $a');
-      }
-    });
-
-    test('formats K/M', () {
-      expect(formatLbpCompact(950), '950');
-      expect(formatLbpCompact(250000), '250K');
-      expect(formatLbpCompact(1500000), '1.5M');
-    });
-
-    test('shows 1.0M instead of 1000K (bug fix)', () {
-      expect(legacyLbpShort(999999), '1000K'); // the old bug
-      expect(formatLbpCompact(999999), '1.0M');
-      expect(formatLbpCompact(999500), '1.0M');
-      expect(formatLbpCompact(999499), '999K');
-    });
-
-    test('negatives get a leading minus', () {
-      expect(formatLbpCompact(-250000), '-250K');
-      expect(formatLbpCompact(-1500000), '-1.5M');
-      expect(formatLbpCompact(-12), '-12');
-      expect(formatLbpCompact(-0.4), '0');
     });
   });
 

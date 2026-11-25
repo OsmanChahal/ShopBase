@@ -33,23 +33,6 @@ String _groupThousands(String digits) {
   return buffer.toString().split('').reversed.join();
 }
 
-/// Compact LBP amount: `"1.5M"`, `"250K"`, or the plain number below 1,000.
-///
-/// Amounts that would round up to `"1000K"` are shown as `"1.0M"` instead,
-/// and negatives get a leading minus (`-250000` → `"-250K"`).
-String formatLbpCompact(double amount) {
-  if (amount < 0) {
-    final abs = formatLbpCompact(-amount);
-    return abs == '0' ? '0' : '-$abs';
-  }
-  if (amount >= 1000000 || (amount / 1000).round() >= 1000) {
-    return '${(amount / 1000000).toStringAsFixed(1)}M';
-  } else if (amount >= 1000) {
-    return '${(amount / 1000).toStringAsFixed(0)}K';
-  }
-  return amount.toStringAsFixed(0);
-}
-
 /// LBP amount rounded with [double.round] and comma thousands separators.
 ///
 /// Used by the POS product grid. Unlike [formatLbpFull] it handles negatives

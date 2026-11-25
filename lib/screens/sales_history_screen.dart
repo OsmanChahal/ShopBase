@@ -226,11 +226,15 @@ class _SaleHistoryTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'LBP ${formatLbpCompact(sale.totalLbp)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.5),
+                        // Full LBP amounts can be long (e.g. 110,493,120);
+                        // Flexible lets them wrap instead of overflowing.
+                        Flexible(
+                          child: Text(
+                            'LBP ${formatLbpFull(sale.totalLbp)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                       ],
