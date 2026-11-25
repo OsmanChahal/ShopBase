@@ -1,4 +1,4 @@
-package com.example.crm_pos
+package com.invaro.app
 
 import io.flutter.embedding.android.FlutterActivity
 
