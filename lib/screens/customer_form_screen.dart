@@ -22,7 +22,9 @@ class CustomerFormScreen extends ConsumerStatefulWidget {
 class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _phoneController;
+
+  /// Full international number to save (e.g. "+96170123456"), or null when
+  /// the field has no digits.
   String? _completePhoneNumber;
 
   bool _isLoading = false;
@@ -32,14 +34,12 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.customer?.name ?? '');
-    _phoneController = TextEditingController();
     _completePhoneNumber = widget.customer?.phone;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -194,9 +194,14 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
                   validator: _validateRequired,
                 ),
                 const SizedBox(height: 16),
+                // No controller: IntlPhoneField only shows initialValue when
+                // it owns the text. A stored number that starts with '+'
+                // picks its own country; otherwise default to Lebanon.
                 IntlPhoneField(
-                  controller: _phoneController,
-                  initialCountryCode: 'LB',
+                  initialCountryCode:
+                      (widget.customer?.phone?.startsWith('+') ?? false)
+                          ? null
+                          : 'LB',
                   initialValue: widget.customer?.phone,
                   decoration: const InputDecoration(
                     labelText: 'Phone (Optional)',
@@ -204,7 +209,11 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
                   ),
                   invalidNumberMessage: 'Enter a valid phone number',
                   onChanged: (phone) {
-                    _completePhoneNumber = phone.completeNumber;
+                    // completeNumber is just the dial code ("+961") when the
+                    // field is empty, so treat no digits as no phone.
+                    _completePhoneNumber = phone.number.trim().isEmpty
+                        ? null
+                        : phone.completeNumber;
                   },
                 ),
                 const SizedBox(height: 32),
