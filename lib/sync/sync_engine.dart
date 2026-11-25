@@ -134,7 +134,14 @@ class SyncEngine {
   /// unique violation, check violation).
   bool _isPermanent(Object e) =>
       e is PostgrestException &&
-      const {'P0001', '42501', '23505', '23514', '22023'}.contains(e.code);
+      const {
+        'P0001',
+        '42501',
+        '23505',
+        '23514',
+        '22023',
+        '23503',
+      }.contains(e.code);
 
   String _friendly(Object e) {
     if (e is PostgrestException) {
@@ -367,12 +374,41 @@ class SyncEngine {
         _needsStockReconcile && (await _queueRepo.getProcessableCount()) == 0;
     await _pullInventoryStock(businessId, overlapSince, reconcile: reconcile);
     if (reconcile) _needsStockReconcile = false;
-    await _pullInventoryAccess();
+    if ((await _queueRepo.getProcessableCount()) == 0) {
+      await _pullInventoryAccess();
+    }
     await _pullTransfers(businessId, overlapSince);
     await _pullCustomers(businessId, lastPullAt);
 
     await _updateLastPullAt(businessId, now);
   }
+  // Future<void> _pull(String businessId) async {
+  //   final lastPullAt = await _getLastPullAt(businessId);
+  //   final now = DateTime.now().toUtc();
+  //   final overlapSince = lastPullAt?.subtract(const Duration(minutes: 2));
+
+  //   dev.log('[SyncEngine Pull] Pulling updates since: $lastPullAt');
+
+  //   final queueEmpty = (await _queueRepo.getProcessableCount()) == 0;
+
+  //   // Access first: if it changed, locations and stock must be re-read in full
+  //   var accessChanged = false;
+  //   if (queueEmpty) accessChanged = await _pullInventoryAccess();
+
+  //   // Locations are a tiny table: always pull them in full, because a grant
+  //   // changes what is visible without changing the row's updated_at.
+  //   await _pullInventories(businessId, null);
+  //   await _pullProducts(businessId, lastPullAt);
+
+  //   final reconcile = (_needsStockReconcile || accessChanged) && queueEmpty;
+  //   await _pullInventoryStock(businessId, overlapSince, reconcile: reconcile);
+  //   if (reconcile) _needsStockReconcile = false;
+
+  //   await _pullTransfers(businessId, overlapSince);
+  //   await _pullCustomers(businessId, lastPullAt);
+
+  //   await _updateLastPullAt(businessId, now);
+  // }
 
   Future<DateTime?> _getLastPullAt(String businessId) async {
     final row = await (_db.select(
@@ -721,6 +757,52 @@ class SyncEngine {
       );
     });
   }
+  // Future<bool> _pullInventoryAccess() async {
+  //   final rows = await _fetchAllPages(
+  //     () => _supabase.from('inventory_access').select(),
+  //     ['inventory_id', 'user_id'],
+  //   );
+  //   String key(String i, String u, bool p, bool v, bool e) => '$i|$u|$p|$v|$e';
+
+  //   final before = (await _db.select(_db.localInventoryAccess).get())
+  //       .map(
+  //         (r) => key(r.inventoryId, r.userId, r.canPos, r.canView, r.canEdit),
+  //       )
+  //       .toSet();
+  //   final after = rows
+  //       .map(
+  //         (j) => key(
+  //           j['inventory_id'] as String,
+  //           j['user_id'] as String,
+  //           j['can_pos'] as bool? ?? false,
+  //           j['can_view'] as bool? ?? false,
+  //           j['can_edit'] as bool? ?? false,
+  //         ),
+  //       )
+  //       .toSet();
+
+  //   final companions = rows.map(
+  //     (j) => LocalInventoryAccessCompanion.insert(
+  //       inventoryId: j['inventory_id'] as String,
+  //       userId: j['user_id'] as String,
+  //       canPos: Value(j['can_pos'] as bool? ?? false),
+  //       canView: Value(j['can_view'] as bool? ?? false),
+  //       canEdit: Value(j['can_edit'] as bool? ?? false),
+  //     ),
+  //   );
+  //   await _db.transaction(() async {
+  //     await _db.delete(_db.localInventoryAccess).go();
+  //     await _db.batch(
+  //       (b) => b.insertAll(
+  //         _db.localInventoryAccess,
+  //         companions.toList(),
+  //         mode: InsertMode.insertOrReplace,
+  //       ),
+  //     );
+  //   });
+
+  //   return before.length != after.length || !before.containsAll(after);
+  // }
 
   Future<void> _pullTransfers(String businessId, DateTime? since) async {
     final rows = await _fetchAllPages(() {

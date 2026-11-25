@@ -5,6 +5,7 @@ import '../models/business_member.dart';
 import '../providers/auth_provider.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
+import '../widgets/inventory_access_widgets.dart';
 
 class ManageStaffScreen extends ConsumerStatefulWidget {
   const ManageStaffScreen({super.key});
@@ -13,7 +14,8 @@ class ManageStaffScreen extends ConsumerStatefulWidget {
   ConsumerState<ManageStaffScreen> createState() => _ManageStaffScreenState();
 }
 
-class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with SingleTickerProviderStateMixin {
+class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen>
+    with SingleTickerProviderStateMixin {
   RealtimeChannel? _requestsChannel;
   late TabController _tabController;
 
@@ -30,16 +32,17 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
     try {
       final business = ref.read(currentBusinessProvider);
       if (business != null) {
-        _requestsChannel = ref.read(staffServiceProvider).subscribeToStaffRequests(
-          business.id,
-          () {
-            print('[Realtime] Admin received new_request signal, refreshing lists');
-            if (mounted) {
-              ref.invalidate(staffInvitationsProvider);
-              ref.invalidate(staffMembersProvider);
-            }
-          },
-        );
+        _requestsChannel = ref
+            .read(staffServiceProvider)
+            .subscribeToStaffRequests(business.id, () {
+              print(
+                '[Realtime] Admin received new_request signal, refreshing lists',
+              );
+              if (mounted) {
+                ref.invalidate(staffInvitationsProvider);
+                ref.invalidate(staffMembersProvider);
+              }
+            });
       }
     } catch (e) {
       print('[Realtime] Error subscribing to staff requests: $e');
@@ -50,7 +53,9 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
   void dispose() {
     _tabController.dispose();
     if (_requestsChannel != null) {
-      ref.read(staffServiceProvider).unsubscribeFromStaffRequests(_requestsChannel!);
+      ref
+          .read(staffServiceProvider)
+          .unsubscribeFromStaffRequests(_requestsChannel!);
     }
     super.dispose();
   }
@@ -84,7 +89,11 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                    Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: theme.colorScheme.error,
+                    ),
                     const SizedBox(height: 16),
                     const Text('Failed to load staff members'),
                     const SizedBox(height: 16),
@@ -102,9 +111,18 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.people_outline, size: 64, color: AppColors.inactiveGray),
+                      const Icon(
+                        Icons.people_outline,
+                        size: 64,
+                        color: AppColors.inactiveGray,
+                      ),
                       const SizedBox(height: 16),
-                      Text('No active staff members', style: theme.textTheme.titleMedium?.copyWith(color: AppColors.textGray)),
+                      Text(
+                        'No active staff members',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppColors.textGray,
+                        ),
+                      ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: () => _openAddStaffFlow(context),
@@ -132,26 +150,36 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
                             : AppColors.primaryPurple.withValues(alpha: 0.1),
                         child: Icon(
                           Icons.person,
-                          color: isInactive ? AppColors.textGray : AppColors.primaryPurple,
+                          color: isInactive
+                              ? AppColors.textGray
+                              : AppColors.primaryPurple,
                         ),
                       ),
                       title: Text(
                         member.displayName ?? 'Staff Member',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: isInactive ? AppColors.textGray : AppColors.accentDark,
+                          color: isInactive
+                              ? AppColors.textGray
+                              : AppColors.accentDark,
                         ),
                       ),
                       subtitle: Text(
                         '${member.permissions.values.where((v) => v).length} permissions • ${member.status}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textGray),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textGray,
+                        ),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _buildStatusBadge(member.status),
                           const SizedBox(width: 8),
-                          const Icon(Icons.chevron_right, color: AppColors.textGray),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.textGray,
+                          ),
                         ],
                       ),
                       onTap: () => _openEditMemberSheet(context, member),
@@ -171,7 +199,11 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                    Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: theme.colorScheme.error,
+                    ),
                     const SizedBox(height: 16),
                     const Text('Failed to load invitations'),
                     const SizedBox(height: 16),
@@ -189,9 +221,18 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.mail_outline, size: 64, color: AppColors.inactiveGray),
+                      const Icon(
+                        Icons.mail_outline,
+                        size: 64,
+                        color: AppColors.inactiveGray,
+                      ),
                       const SizedBox(height: 16),
-                      Text('No staff invitations', style: theme.textTheme.titleMedium?.copyWith(color: AppColors.textGray)),
+                      Text(
+                        'No staff invitations',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppColors.textGray,
+                        ),
+                      ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: () => _openAddStaffFlow(context),
@@ -212,34 +253,52 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
                   return Card(
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.1),
-                        child: const Icon(Icons.person, color: AppColors.primaryPurple),
+                        backgroundColor: AppColors.primaryPurple.withValues(
+                          alpha: 0.1,
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: AppColors.primaryPurple,
+                        ),
                       ),
                       title: Text(
                         inv.staffFullName ?? inv.email,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      subtitle: inv.staffFullName != null ? Text(inv.email) : null,
+                      subtitle: inv.staffFullName != null
+                          ? Text(inv.email)
+                          : null,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (inv.status == 'awaiting_approval') ...[
                             IconButton(
-                              icon: const Icon(Icons.close, color: AppColors.statusError),
+                              icon: const Icon(
+                                Icons.close,
+                                color: AppColors.statusError,
+                              ),
                               tooltip: 'Decline',
                               onPressed: () => _handleDecline(context, inv.id),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.check, color: AppColors.statusSuccess),
+                              icon: const Icon(
+                                Icons.check,
+                                color: AppColors.statusSuccess,
+                              ),
                               tooltip: 'Accept',
                               onPressed: () => _handleAccept(context, inv.id),
                             ),
                           ],
-                          if (inv.status == 'invited' || inv.status == 'awaiting_approval') ...[
+                          if (inv.status == 'invited' ||
+                              inv.status == 'awaiting_approval') ...[
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, color: AppColors.textGray),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: AppColors.textGray,
+                              ),
                               tooltip: 'Cancel Invitation',
-                              onPressed: () => _handleCancelInvitation(context, inv.id),
+                              onPressed: () =>
+                                  _handleCancelInvitation(context, inv.id),
                             ),
                           ],
                           _buildStatusBadge(inv.status),
@@ -306,9 +365,9 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
   }
 
   void _openAddStaffFlow(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const _AddStaffFlowScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const _AddStaffFlowScreen()));
   }
 
   void _openEditMemberSheet(BuildContext context, BusinessMember member) {
@@ -322,11 +381,14 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
 
   Future<void> _handleAccept(BuildContext context, String invitationId) async {
     try {
-      await ref.read(supabaseClientProvider)
+      await ref
+          .read(supabaseClientProvider)
           .from('staff_invitations')
           .update({'status': 'accepted'})
           .eq('id', invitationId);
-      await ref.read(staffServiceProvider).broadcastStatusUpdate(
+      await ref
+          .read(staffServiceProvider)
+          .broadcastStatusUpdate(
             invitationId: invitationId,
             status: 'accepted',
           );
@@ -334,7 +396,12 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
       ref.invalidate(staffMembersProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to accept: $e'), backgroundColor: AppColors.statusError));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to accept: $e'),
+            backgroundColor: AppColors.statusError,
+          ),
+        );
       }
     }
   }
@@ -344,21 +411,35 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Decline Request?'),
-        content: const Text('Are you sure you want to decline this staff member?'),
+        content: const Text(
+          'Are you sure you want to decline this staff member?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Decline', style: TextStyle(color: AppColors.statusError))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Decline',
+              style: TextStyle(color: AppColors.statusError),
+            ),
+          ),
         ],
       ),
     );
     if (confirm != true) return;
 
     try {
-      await ref.read(supabaseClientProvider)
+      await ref
+          .read(supabaseClientProvider)
           .from('staff_invitations')
           .update({'status': 'declined'})
           .eq('id', invitationId);
-      await ref.read(staffServiceProvider).broadcastStatusUpdate(
+      await ref
+          .read(staffServiceProvider)
+          .broadcastStatusUpdate(
             invitationId: invitationId,
             status: 'declined',
           );
@@ -366,20 +447,37 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
       ref.invalidate(staffMembersProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to decline: $e'), backgroundColor: AppColors.statusError));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to decline: $e'),
+            backgroundColor: AppColors.statusError,
+          ),
+        );
       }
     }
   }
 
-  Future<void> _handleCancelInvitation(BuildContext context, String invitationId) async {
+  Future<void> _handleCancelInvitation(
+    BuildContext context,
+    String invitationId,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel Invitation?'),
         content: const Text('Are you sure you want to cancel this invitation?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Cancel Invite', style: TextStyle(color: AppColors.statusError))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Cancel Invite',
+              style: TextStyle(color: AppColors.statusError),
+            ),
+          ),
         ],
       ),
     );
@@ -389,13 +487,21 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> with Sing
       await ref.read(staffServiceProvider).cancelInvitation(invitationId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invitation cancelled.'), backgroundColor: AppColors.statusSuccess),
+          const SnackBar(
+            content: Text('Invitation cancelled.'),
+            backgroundColor: AppColors.statusSuccess,
+          ),
         );
       }
       ref.invalidate(staffInvitationsProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: AppColors.statusError));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to cancel: $e'),
+            backgroundColor: AppColors.statusError,
+          ),
+        );
       }
     }
   }
@@ -406,7 +512,8 @@ class _EditStaffMemberSheet extends ConsumerStatefulWidget {
   const _EditStaffMemberSheet({required this.member});
 
   @override
-  ConsumerState<_EditStaffMemberSheet> createState() => _EditStaffMemberSheetState();
+  ConsumerState<_EditStaffMemberSheet> createState() =>
+      _EditStaffMemberSheetState();
 }
 
 class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
@@ -435,18 +542,26 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
   Future<void> _savePermissions() async {
     setState(() => _isSaving = true);
     try {
-      await ref.read(staffServiceProvider).updateMemberPermissions(widget.member.id, _permissions);
+      await ref
+          .read(staffServiceProvider)
+          .updateMemberPermissions(widget.member.id, _permissions);
       ref.invalidate(staffMembersProvider);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permissions updated successfully.'), backgroundColor: AppColors.statusSuccess),
+          const SnackBar(
+            content: Text('Permissions updated successfully.'),
+            backgroundColor: AppColors.statusSuccess,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update: $e'), backgroundColor: AppColors.statusError),
+          SnackBar(
+            content: Text('Failed to update: $e'),
+            backgroundColor: AppColors.statusError,
+          ),
         );
       }
     } finally {
@@ -462,12 +577,24 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('$actionName Staff Member?'),
-        content: Text('Are you sure you want to $actionName this staff member?'),
+        content: Text(
+          'Are you sure you want to $actionName this staff member?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(actionName, style: TextStyle(color: newStatus == 'inactive' ? AppColors.statusError : AppColors.statusSuccess)),
+            child: Text(
+              actionName,
+              style: TextStyle(
+                color: newStatus == 'inactive'
+                    ? AppColors.statusError
+                    : AppColors.statusSuccess,
+              ),
+            ),
           ),
         ],
       ),
@@ -476,18 +603,26 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
 
     setState(() => _isSaving = true);
     try {
-      await ref.read(staffServiceProvider).updateMemberStatus(widget.member.id, newStatus);
+      await ref
+          .read(staffServiceProvider)
+          .updateMemberStatus(widget.member.id, newStatus);
       ref.invalidate(staffMembersProvider);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Staff member is now $newStatus.'), backgroundColor: AppColors.statusSuccess),
+          SnackBar(
+            content: Text('Staff member is now $newStatus.'),
+            backgroundColor: AppColors.statusSuccess,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update status: $e'), backgroundColor: AppColors.statusError),
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: AppColors.statusError,
+          ),
         );
       }
     } finally {
@@ -500,7 +635,7 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
     final isInactive = widget.member.status == 'inactive';
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
+      height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
         color: AppColors.baseWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -512,7 +647,10 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
             child: Container(
               width: 40,
               height: 4,
-              decoration: BoxDecoration(color: AppColors.borderGray, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: AppColors.borderGray,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -527,7 +665,10 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
                     children: [
                       Text(
                         widget.member.displayName ?? 'Staff Member',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -535,14 +676,25 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: isInactive ? AppColors.statusErrorBg : AppColors.statusSuccessBg,
+                    color: isInactive
+                        ? AppColors.statusErrorBg
+                        : AppColors.statusSuccessBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     widget.member.status.toUpperCase(),
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isInactive ? AppColors.statusError : AppColors.statusSuccess),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isInactive
+                          ? AppColors.statusError
+                          : AppColors.statusSuccess,
+                    ),
                   ),
                 ),
               ],
@@ -553,22 +705,45 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('Edit Permissions', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textGray)),
+              child: Text(
+                'Edit Permissions',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textGray,
+                ),
+              ),
             ),
           ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: _permissionLabels.keys.map((key) {
-                return CheckboxListTile(
-                  title: Text(_permissionLabels[key]!),
-                  value: _permissions[key] ?? false,
-                  activeColor: AppColors.primaryPurple,
-                  onChanged: (val) {
-                    setState(() => _permissions[key] = val ?? false);
-                  },
-                );
-              }).toList(),
+              children: [
+                ..._permissionLabels.keys.map((key) {
+                  return CheckboxListTile(
+                    title: Text(_permissionLabels[key]!),
+                    value: _permissions[key] ?? false,
+                    activeColor: AppColors.primaryPurple,
+                    onChanged: (val) {
+                      setState(() => _permissions[key] = val ?? false);
+                    },
+                  );
+                }),
+                const Divider(height: 32),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Text(
+                    'Location access',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textGray,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  child: StaffLocationAccessSection(member: widget.member),
+                ),
+              ],
             ),
           ),
           Padding(
@@ -579,8 +754,14 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
                   child: OutlinedButton(
                     onPressed: _isSaving ? null : _toggleStatus,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: isInactive ? AppColors.statusSuccess : AppColors.statusError,
-                      side: BorderSide(color: isInactive ? AppColors.statusSuccess : AppColors.statusError),
+                      foregroundColor: isInactive
+                          ? AppColors.statusSuccess
+                          : AppColors.statusError,
+                      side: BorderSide(
+                        color: isInactive
+                            ? AppColors.statusSuccess
+                            : AppColors.statusError,
+                      ),
                     ),
                     child: Text(isInactive ? 'Reactivate' : 'Deactivate'),
                   ),
@@ -590,7 +771,14 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _savePermissions,
                     child: _isSaving
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text('Save Permissions'),
                   ),
                 ),
@@ -603,17 +791,17 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
   }
 }
 
-
 class _AddStaffFlowScreen extends ConsumerStatefulWidget {
   const _AddStaffFlowScreen();
 
   @override
-  ConsumerState<_AddStaffFlowScreen> createState() => _AddStaffFlowScreenState();
+  ConsumerState<_AddStaffFlowScreen> createState() =>
+      _AddStaffFlowScreenState();
 }
 
 class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
   int _currentStep = 0;
-  
+
   // Step 1: Email
   final _emailController = TextEditingController();
   bool _isCheckingEmail = false;
@@ -680,7 +868,8 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
 
       if (isDuplicate) {
         setState(() {
-          _emailError = 'This email already has a pending or accepted invitation.';
+          _emailError =
+              'This email already has a pending or accepted invitation.';
         });
       } else {
         setState(() => _currentStep = 1);
@@ -701,7 +890,9 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      await ref.read(staffServiceProvider).createInvitation(
+      await ref
+          .read(staffServiceProvider)
+          .createInvitation(
             businessId: business.id,
             email: _emailController.text.trim(),
             permissions: _permissions,
@@ -769,9 +960,9 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
         children: [
           Text(
             'Who are you inviting?',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -806,9 +997,9 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
           child: Text(
             'Set Permissions',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         const Padding(
@@ -840,7 +1031,7 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
 
   Widget _buildReviewStep() {
     final checkedCount = _permissions.values.where((v) => v).length;
-    
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -848,9 +1039,9 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
         children: [
           Text(
             'Review Invitation',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 24),
           Card(
@@ -860,18 +1051,30 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Email', style: TextStyle(color: AppColors.textGray)),
+                  const Text(
+                    'Email',
+                    style: TextStyle(color: AppColors.textGray),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     _emailController.text.trim(),
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
                   const Divider(height: 32),
-                  const Text('Permissions', style: TextStyle(color: AppColors.textGray)),
+                  const Text(
+                    'Permissions',
+                    style: TextStyle(color: AppColors.textGray),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     '$checkedCount permissions granted',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -901,7 +1104,7 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
             )
           else
             const SizedBox.shrink(), // Spacer
-            
+
           if (_currentStep == 0)
             ElevatedButton(
               onPressed: _isCheckingEmail ? null : _handleNextFromEmail,

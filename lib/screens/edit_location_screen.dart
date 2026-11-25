@@ -6,6 +6,7 @@ import '../providers/inventory_actions_provider.dart';
 import '../providers/inventory_provider.dart';
 import '../widgets/location_form_widgets.dart';
 import '../widgets/transfer_stock_sheet.dart';
+import '../widgets/inventory_access_widgets.dart';
 
 class EditLocationScreen extends ConsumerStatefulWidget {
   final String inventoryId;
@@ -390,7 +391,14 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
+          if (isAdmin) ...[
+            const _Eyebrow('Staff Access'),
+            const SizedBox(height: 8),
+            _Card(
+              child: InventoryStaffAccessSection(inventoryId: s.inventory.id),
+            ),
+            const SizedBox(height: 20),
+          ],
           // ── Address & operations (DISABLED) ──────────────────────────────
           // TODO(backend): physical address + operations manager columns.
           const _Eyebrow('Address & Operations'),

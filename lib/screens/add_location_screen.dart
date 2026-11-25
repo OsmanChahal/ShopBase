@@ -8,6 +8,8 @@ import '../theme/app_colors.dart';
 import '../widgets/inventory_ui_helpers.dart';
 import '../widgets/location_form_widgets.dart';
 import '../widgets/transfer_stock_sheet.dart';
+import '../providers/inventory_access_provider.dart';
+import '../widgets/inventory_access_widgets.dart';
 
 class AddLocationScreen extends ConsumerStatefulWidget {
   const AddLocationScreen({super.key});
@@ -24,6 +26,28 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
   void dispose() {
     _name.dispose();
     super.dispose();
+  }
+
+  final Map<String, AccessGrant> _draft = {};
+
+  Future<int> _applyDraftAccess(String inventoryId) async {
+    var failed = 0;
+    for (final e in _draft.entries) {
+      try {
+        await ref
+            .read(inventoryActionsProvider)
+            .setAccess(
+              inventoryId: inventoryId,
+              userId: e.key,
+              canPos: e.value.pos,
+              canView: e.value.view,
+              canEdit: e.value.edit,
+            );
+      } catch (_) {
+        failed++;
+      }
+    }
+    return failed;
   }
 
   String? _nameError(List<LocalInventory> existing) {
@@ -53,9 +77,21 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
       });
       return;
     }
+    final failed = await _applyDraftAccess(id);
     final list = await ref.read(accessibleInventoriesProvider.future);
     if (!mounted) return;
     setState(() => _saving = false);
+    if (failed > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Location created, but $failed staff access setting(s) could not '
+            'be saved. Set them from Manage Locations.',
+          ),
+          backgroundColor: AppColors.statusError,
+        ),
+      );
+    }
     await _afterCreate(id, name, list);
   }
 
@@ -369,24 +405,18 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ── Staff access (NOT IN THE HTML: disabled placeholder) ────
-                // TODO(UI): staff access picker. Backend is ready
-                // (inventoryActionsProvider.setAccess). Needs the staff list
-                // from staff_provider.dart.
-                const LocSection(
+                LocSection(
                   dot: LocDesign.purple,
                   title: 'Staff Access',
-                  child: ComingSoon(
-                    message: 'Staff access — coming soon',
-                    child: Text(
-                      'Choose which staff can sell from, view or edit this '
-                      'location. Until then only owners and admins can see it.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: LocDesign.muted,
-                        height: 1.4,
-                      ),
-                    ),
+                  child: DraftStaffAccessSection(
+                    draft: _draft,
+                    onChanged: (userId, grant) => setState(() {
+                      if (grant.isNone) {
+                        _draft.remove(userId);
+                      } else {
+                        _draft[userId] = grant;
+                      }
+                    }),
                   ),
                 ),
                 const SizedBox(height: 16),
