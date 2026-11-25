@@ -242,17 +242,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   void _showStockAdjustDialog() {
     if (widget.product == null) return;
-    showModalBottomSheet(
+    showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => StockAdjustDialog(product: widget.product!),
-    ).then((_) {
-      // After stock adjust, pop back to list since the product data
-      // in this form is now stale
-      if (mounted) Navigator.of(context).pop();
+    ).then((adjusted) {
+      // Only after a successful adjustment: the product data in this form is
+      // now stale (saving it could write the old stock back), so return to
+      // the list. Cancel / no change keeps the form and any unsaved edits.
+      if (adjusted == true && mounted) Navigator.of(context).pop();
     });
   }
 

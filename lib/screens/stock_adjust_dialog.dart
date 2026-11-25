@@ -76,7 +76,8 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
             ),
           ),
         );
-        Navigator.of(context).pop();
+        // true = stock was changed (callers may treat their data as stale)
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
