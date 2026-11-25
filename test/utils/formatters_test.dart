@@ -46,9 +46,9 @@ const amounts = <double>[
 
 void main() {
   group('formatLbpFull', () {
-    test('matches the legacy screen implementation for all sample amounts',
+    test('matches the legacy screen implementation for non-negative amounts',
         () {
-      for (final a in amounts) {
+      for (final a in amounts.where((a) => a >= 0)) {
         expect(formatLbpFull(a), legacyLbpFull(a), reason: 'amount $a');
       }
     });
@@ -60,24 +60,45 @@ void main() {
       expect(formatLbpFull(8950000), '8,950,000');
     });
 
-    test('keeps the known negative-number quirk', () {
-      expect(formatLbpFull(-123456), '-,123,456');
+    test('formats negatives without a stray separator (bug fix)', () {
+      expect(legacyLbpFull(-123456), '-,123,456'); // the old bug
+      expect(formatLbpFull(-123456), '-123,456');
+      expect(formatLbpFull(-1234567), '-1,234,567');
       expect(formatLbpFull(-12345), '-12,345');
+      expect(formatLbpFull(-999), '-999');
+    });
+
+    test('never shows negative zero', () {
+      expect(formatLbpFull(-0.4), '0');
+      expect(formatLbpFull(-1), '-1');
     });
   });
 
   group('formatLbpCompact', () {
-    test('matches the legacy implementation for all sample amounts', () {
-      for (final a in amounts) {
+    test('matches the legacy implementation except the fixed cases', () {
+      for (final a in amounts.where((a) => a >= 0 && (a < 999500 || a >= 1e6))) {
         expect(formatLbpCompact(a), legacyLbpShort(a), reason: 'amount $a');
       }
     });
 
-    test('formats K/M and keeps the 1000K quirk', () {
+    test('formats K/M', () {
       expect(formatLbpCompact(950), '950');
       expect(formatLbpCompact(250000), '250K');
       expect(formatLbpCompact(1500000), '1.5M');
-      expect(formatLbpCompact(999999), '1000K');
+    });
+
+    test('shows 1.0M instead of 1000K (bug fix)', () {
+      expect(legacyLbpShort(999999), '1000K'); // the old bug
+      expect(formatLbpCompact(999999), '1.0M');
+      expect(formatLbpCompact(999500), '1.0M');
+      expect(formatLbpCompact(999499), '999K');
+    });
+
+    test('negatives get a leading minus', () {
+      expect(formatLbpCompact(-250000), '-250K');
+      expect(formatLbpCompact(-1500000), '-1.5M');
+      expect(formatLbpCompact(-12), '-12');
+      expect(formatLbpCompact(-0.4), '0');
     });
   });
 

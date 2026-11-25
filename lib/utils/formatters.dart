@@ -1,7 +1,6 @@
 // Display formatters shared by screens and widgets.
 //
-// These reproduce the per-screen helpers they replaced exactly, including
-// their quirks (see the doc comments). Changing output here changes what users
+// These replaced per-screen copies. Changing output here changes what users
 // see on several screens, so update the tests in test/utils/ deliberately.
 
 const List<String> _monthAbbreviations = [
@@ -10,12 +9,20 @@ const List<String> _monthAbbreviations = [
 ];
 
 /// Full LBP amount with comma thousands separators, no decimals
-/// (e.g. `1500000` → `"1,500,000"`).
+/// (e.g. `1500000` → `"1,500,000"`, `-123456` → `"-123,456"`).
 ///
-/// Known quirk (kept for behavior parity): the minus sign is counted as a
-/// digit, so some negatives get a stray separator (`-123456` → `"-,123,456"`).
+/// Rounds like [double.toStringAsFixed]. Values that round to zero are shown
+/// as `"0"`, never `"-0"`.
 String formatLbpFull(double amount) {
-  final str = amount.toStringAsFixed(0);
+  final rounded = amount.toStringAsFixed(0);
+  if (rounded == '-0') return '0';
+  if (rounded.startsWith('-')) return '-${_groupThousands(rounded.substring(1))}';
+  return _groupThousands(rounded);
+}
+
+/// Inserts a comma every three digits from the right in a digits-only string.
+String _groupThousands(String digits) {
+  final str = digits;
   final buffer = StringBuffer();
   int count = 0;
   for (int i = str.length - 1; i >= 0; i--) {
@@ -28,9 +35,14 @@ String formatLbpFull(double amount) {
 
 /// Compact LBP amount: `"1.5M"`, `"250K"`, or the plain number below 1,000.
 ///
-/// Known quirk: values just under a million round up to `"1000K"`.
+/// Amounts that would round up to `"1000K"` are shown as `"1.0M"` instead,
+/// and negatives get a leading minus (`-250000` → `"-250K"`).
 String formatLbpCompact(double amount) {
-  if (amount >= 1000000) {
+  if (amount < 0) {
+    final abs = formatLbpCompact(-amount);
+    return abs == '0' ? '0' : '-$abs';
+  }
+  if (amount >= 1000000 || (amount / 1000).round() >= 1000) {
     return '${(amount / 1000000).toStringAsFixed(1)}M';
   } else if (amount >= 1000) {
     return '${(amount / 1000).toStringAsFixed(0)}K';
