@@ -278,7 +278,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                             },
                             onLongPress: canEdit ? () => _toggle(id) : null,
                             onAction: () {
-                              if (p.isLowStock) {
+                              // Same condition as the row's "Restock" label.
+                              if (p.isLowStock || p.isOutOfStock) {
                                 _showStockAdjustDialog(p);
                               } else {
                                 _openTransfer([id]);
