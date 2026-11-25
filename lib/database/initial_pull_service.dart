@@ -1,9 +1,9 @@
-import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_database.dart';
 import 'local_customer_repository.dart';
 import 'local_product_repository.dart';
 import 'local_sale_repository.dart';
+import '../sync/remote_mappers.dart';
 import '../sync/supabase_paging.dart';
 
 /// One-time initial pull from Supabase into the local SQLite database.
@@ -47,26 +47,9 @@ class InitialPullService {
       ['id'],
     );
 
-    final productCompanions = productsResponse.map((json) {
-      final j = json;
-      return LocalProductsCompanion.insert(
-        id: j['id'] as String,
-        businessId: j['business_id'] as String,
-        name: j['name'] as String,
-        sku: Value(j['sku'] as String?),
-        category: Value(j['category'] as String?),
-        costPriceUsd: (j['cost_price_usd'] as num).toDouble(),
-        sellPriceUsd: (j['sell_price_usd'] as num).toDouble(),
-        quantity: j['quantity'] as int,
-        lowStockThreshold: Value((j['low_stock_threshold'] as int?) ?? 5),
-        updatedAt: Value(
-          j['updated_at'] != null
-              ? DateTime.parse(j['updated_at'] as String)
-              : now,
-        ),
-        lastSyncedAt: Value(now),
-      );
-    }).toList();
+    final productCompanions = productsResponse
+        .map((j) => productFromRemote(j, syncedAt: now))
+        .toList();
 
     if (productCompanions.isNotEmpty) {
       await _productRepo.bulkInsertProducts(productCompanions);
@@ -78,17 +61,9 @@ class InitialPullService {
       ['id'],
     );
 
-    final customerCompanions = customersResponse.map((json) {
-      final j = json;
-      return LocalCustomersCompanion.insert(
-        id: j['id'] as String,
-        businessId: j['business_id'] as String,
-        name: j['name'] as String,
-        phone: Value(j['phone'] as String?),
-        createdAt: DateTime.parse(j['created_at'] as String),
-        lastSyncedAt: Value(now),
-      );
-    }).toList();
+    final customerCompanions = customersResponse
+        .map((j) => customerFromRemote(j, syncedAt: now))
+        .toList();
 
     if (customerCompanions.isNotEmpty) {
       await _customerRepo.bulkInsertCustomers(customerCompanions);
@@ -100,21 +75,7 @@ class InitialPullService {
       ['id'],
     );
     if (salesList.isNotEmpty) {
-      final saleCompanions = salesList.map((json) {
-        final j = json;
-        return LocalSalesCompanion.insert(
-          id: j['id'] as String,
-          businessId: j['business_id'] as String,
-          customerId: Value(j['customer_id'] as String?),
-          totalUsd: (j['total_usd'] as num).toDouble(),
-          totalLbp: (j['total_lbp'] as num).toDouble(),
-          exchangeRateUsed: (j['exchange_rate_used'] as num).toDouble(),
-          paymentType: j['payment_type'] as String,
-          createdAt: DateTime.parse(j['created_at'] as String),
-          synced: const Value(true), // Already exists on server
-          inventoryId: Value(j['inventory_id'] as String?),
-        );
-      }).toList();
+      final saleCompanions = salesList.map(saleFromRemote).toList();
 
       await _saleRepo.bulkInsertSales(saleCompanions);
 
@@ -136,25 +97,7 @@ class InitialPullService {
           ['id'],
         );
 
-        for (final json in itemsResponse) {
-          final j = json;
-          allItemCompanions.add(
-            LocalSaleItemsCompanion.insert(
-              id: j['id'] as String,
-              saleId: j['sale_id'] as String,
-              productId:
-                  (j['product_id'] as String?) ??
-                  '', //Changes null after product deletion
-              productNameSnapshot: j['product_name_snapshot'] as String,
-              quantity: j['quantity'] as int,
-              unitPriceUsd: (j['unit_price_usd'] as num).toDouble(),
-              subtotalUsd: (j['subtotal_usd'] as num).toDouble(),
-              costPriceUsdSnapshot: Value(
-                (j['cost_price_snapshot'] as num?)?.toDouble(),
-              ),
-            ),
-          );
-        }
+        allItemCompanions.addAll(itemsResponse.map(saleItemFromRemote));
       }
 
       if (allItemCompanions.isNotEmpty) {
