@@ -7,21 +7,22 @@ import '../providers/inventory_provider.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
 import 'location_form_widgets.dart';
+import '../constants/permissions.dart';
 
 const _amber = Color(0xFFB45309);
 
 /// The server needs the global permission AND the location grant.
 String? permissionHint(BusinessMember m, AccessGrant g) {
-  if (g.pos && !m.hasPermission('use_pos')) {
+  if (g.pos && !m.hasPermission(Permissions.usePos)) {
     return "Selling also needs the 'Use POS' permission";
   }
-  if (g.edit && !m.hasPermission('edit_inventory')) {
+  if (g.edit && !m.hasPermission(Permissions.editInventory)) {
     return "Editing also needs the 'Edit Inventory' permission";
   }
   if (g.view &&
-      !(m.hasPermission('view_inventory') ||
-          m.hasPermission('use_pos') ||
-          m.hasPermission('view_dashboard'))) {
+      !(m.hasPermission(Permissions.viewInventory) ||
+          m.hasPermission(Permissions.usePos) ||
+          m.hasPermission(Permissions.viewDashboard))) {
     return "Viewing needs 'View Inventory', 'Use POS' or 'View Dashboard'";
   }
   return null;

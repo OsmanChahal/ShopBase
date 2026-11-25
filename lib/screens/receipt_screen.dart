@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/sale.dart';
 import '../providers/auth_provider.dart';
+import '../services/whatsapp_service.dart';
 import '../utils/formatters.dart';
 import '../utils/phone.dart';
+import '../utils/receipt_message.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
   final Sale sale;
@@ -48,39 +49,11 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
 
   /// Builds the plain-text WhatsApp receipt message from the sale data.
   String _buildReceiptMessage() {
-    final sale = widget.sale;
-    final items = sale.items ?? [];
-    final localTime = sale.createdAt.toLocal();
     final business = ref.read(currentBusinessProvider);
-    final businessName =
-        widget.businessName ?? business?.name ?? 'Our Store';
-
-    final dateStr = _formatDate(localTime);
-    final timeStr = formatTime12h(localTime);
-    final paymentLabel =
-        paymentTypeLabel(sale.paymentType);
-
-    final buffer = StringBuffer();
-    buffer.writeln('🧾 *Receipt from $businessName*');
-    buffer.writeln();
-    buffer.writeln('📅 $dateStr - $timeStr');
-    buffer.writeln();
-
-    for (final item in items) {
-      final unitPrice = item.unitPriceUsd.toStringAsFixed(2);
-      final lineTotal = item.subtotalUsd.toStringAsFixed(2);
-      buffer.writeln(
-          '${item.quantity} x ${item.productNameSnapshot}  –  \$$unitPrice  =  \$$lineTotal');
-    }
-
-    buffer.writeln();
-    buffer.writeln(
-        '💵 *Total: \$${sale.totalUsd.toStringAsFixed(2)}*  (LBP ${formatLbpFull(sale.totalLbp)})');
-    buffer.writeln('💳 Payment: $paymentLabel');
-    buffer.writeln();
-    buffer.write('Thank you for your purchase! 🙏');
-
-    return buffer.toString();
+    return buildReceiptMessage(
+      sale: widget.sale,
+      businessName: widget.businessName ?? business?.name ?? 'Our Store',
+    );
   }
 
   Future<void> _openWhatsApp() async {
@@ -91,29 +64,19 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
 
     try {
       final message = _buildReceiptMessage();
-      final encoded = Uri.encodeComponent(message);
-      final uri = Uri.parse('https://wa.me/$phone?text=$encoded');
+      final uri = buildWhatsAppUri(phone, text: message);
 
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      final launched = await launchWhatsApp(uri);
 
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Could not open WhatsApp — is it installed?'),
-          ),
+          const SnackBar(content: Text(whatsAppLaunchFailedMessage)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Could not open WhatsApp — is it installed?'),
-          ),
+          const SnackBar(content: Text(whatsAppLaunchFailedMessage)),
         );
       }
     } finally {
@@ -211,7 +174,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
 
                   // Timestamp
                   Text(
-                    '${_formatDate(localTime)} at ${formatTime12h(localTime)}',
+                    '${formatDateDayMonYear(localTime)} at ${formatTime12h(localTime)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface
                           .withValues(alpha: 0.5),
@@ -460,12 +423,6 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
         ),
       ),
     );
-  }
-
-  // ── Formatters ────────────────────────────────────────────────────────────
-
-  String _formatDate(DateTime dt) {
-    return '${dt.day} ${monthAbbr(dt.month)} ${dt.year}';
   }
 }
 

@@ -63,6 +63,10 @@ String formatTime12h(DateTime dt) {
 /// Three-letter English month name for a 1-based [month] (1 → `"Jan"`).
 String monthAbbr(int month) => _monthAbbreviations[month - 1];
 
+/// Date as `"5 Mar 2026"`, as shown on receipts.
+String formatDateDayMonYear(DateTime dt) =>
+    '${dt.day} ${monthAbbr(dt.month)} ${dt.year}';
+
 /// Display label for a sale's payment type. Anything other than `'cash'`
 /// is shown as `"Card"`.
 String paymentTypeLabel(String paymentType) =>

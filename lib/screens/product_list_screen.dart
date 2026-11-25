@@ -16,6 +16,7 @@ import 'stock_adjust_dialog.dart';
 import 'add_location_screen.dart';
 import 'manage_locations_screen.dart';
 import '../utils/error_text.dart';
+import '../constants/permissions.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -112,7 +113,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         ref.watch(accessibleInventoriesProvider).valueOrNull ?? [];
     final current = ref.watch(currentInventoryProvider).valueOrNull;
     final isAdmin = ref.watch(isAdminProvider);
-    final canEdit = ref.watch(hasPermissionProvider('edit_inventory'));
+    final canEdit = ref.watch(hasPermissionProvider(Permissions.editInventory));
     final totalCount = all.valueOrNull?.length ?? 0;
     final lowCount = all.valueOrNull?.where((p) => p.isLowStock).length ?? 0;
     final query = ref.watch(productSearchQueryProvider);

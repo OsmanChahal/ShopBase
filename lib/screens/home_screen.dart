@@ -12,6 +12,7 @@ import 'pos_screen.dart';
 import 'product_list_screen.dart';
 import 'settings_sheet.dart';
 import '../utils/error_text.dart';
+import '../constants/permissions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -90,11 +91,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canViewDashboard = ref.watch(hasPermissionProvider('view_dashboard'));
-    final canUsePos = ref.watch(hasPermissionProvider('use_pos'));
-    final canViewInventory = ref.watch(hasPermissionProvider('view_inventory'));
+    final canViewDashboard = ref.watch(hasPermissionProvider(Permissions.viewDashboard));
+    final canUsePos = ref.watch(hasPermissionProvider(Permissions.usePos));
+    final canViewInventory = ref.watch(hasPermissionProvider(Permissions.viewInventory));
     final canManageCustomers = ref.watch(
-      hasPermissionProvider('manage_customers'),
+      hasPermissionProvider(Permissions.manageCustomers),
     );
 
     final List<Widget> availableScreens = [];

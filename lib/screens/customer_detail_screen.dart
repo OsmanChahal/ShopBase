@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/customer.dart';
 import '../models/sale.dart';
 import '../models/tag.dart';
@@ -18,6 +17,7 @@ import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
 import '../utils/formatters.dart';
 import '../utils/phone.dart';
+import '../services/whatsapp_service.dart';
 import '../utils/error_text.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
@@ -689,27 +689,18 @@ class _WhatsAppButton extends StatelessWidget {
       return;
     }
 
-    final uri = Uri.parse('https://wa.me/$digits');
+    final uri = buildWhatsAppUri(digits);
     try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      final launched = await launchWhatsApp(uri);
       if (!launched && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Could not open WhatsApp — is it installed?'),
-          ),
+          const SnackBar(content: Text(whatsAppLaunchFailedMessage)),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Could not open WhatsApp — is it installed?'),
-          ),
+          const SnackBar(content: Text(whatsAppLaunchFailedMessage)),
         );
       }
     }

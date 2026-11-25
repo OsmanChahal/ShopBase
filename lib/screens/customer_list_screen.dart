@@ -20,6 +20,7 @@ import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
 import '../utils/formatters.dart';
 import '../utils/error_text.dart';
+import '../constants/permissions.dart';
 
 /// Family provider to fetch monthly order count for a customer list row.
 final _customerMonthlyOrderCountProvider =
@@ -79,7 +80,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canViewOverview = ref.watch(hasPermissionProvider('view_crm_overview'));
+    final canViewOverview = ref.watch(hasPermissionProvider(Permissions.viewCrmOverview));
     final showOverview = canViewOverview && _selectedSection == 0;
 
     return Scaffold(

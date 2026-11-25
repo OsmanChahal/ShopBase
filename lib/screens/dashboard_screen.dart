@@ -11,6 +11,7 @@ import '../widgets/stat_badge.dart';
 import 'expense_list_screen.dart';
 import 'pos_screen.dart';
 import '../utils/formatters.dart';
+import '../constants/permissions.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -20,8 +21,8 @@ class DashboardScreen extends ConsumerWidget {
     final business = ref.watch(currentBusinessProvider);
     final rate = business?.currencyRate ?? 0;
 
-    final canManageExpenses = ref.watch(hasPermissionProvider('manage_expenses'));
-    final canUsePos = ref.watch(hasPermissionProvider('use_pos'));
+    final canManageExpenses = ref.watch(hasPermissionProvider(Permissions.manageExpenses));
+    final canUsePos = ref.watch(hasPermissionProvider(Permissions.usePos));
 
     return Scaffold(
       appBar: AppBar(
@@ -199,7 +200,7 @@ class _FinancialCard extends ConsumerWidget {
     final monthRevAsync = ref.watch(monthRevenueProvider);
     final recurringAsync = ref.watch(recurringExpensesProvider);
     final oneOffAsync = ref.watch(oneOffExpensesProvider);
-    final canManageExpenses = ref.watch(hasPermissionProvider('manage_expenses'));
+    final canManageExpenses = ref.watch(hasPermissionProvider(Permissions.manageExpenses));
 
     final isLoading =
         monthRevAsync.isLoading ||

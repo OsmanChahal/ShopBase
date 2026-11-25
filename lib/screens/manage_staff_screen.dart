@@ -7,6 +7,7 @@ import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/inventory_access_widgets.dart';
 import '../utils/error_text.dart';
+import '../constants/permissions.dart';
 
 class ManageStaffScreen extends ConsumerStatefulWidget {
   const ManageStaffScreen({super.key});
@@ -518,15 +519,7 @@ class _EditStaffMemberSheetState extends ConsumerState<_EditStaffMemberSheet> {
   late Map<String, bool> _permissions;
   bool _isSaving = false;
 
-  final Map<String, String> _permissionLabels = {
-    'view_dashboard': 'View Dashboard',
-    'view_crm_overview': 'View CRM Overview',
-    'manage_customers': 'Manage Customers',
-    'view_inventory': 'View Inventory',
-    'edit_inventory': 'Edit Inventory',
-    'use_pos': 'Use POS',
-    'manage_expenses': 'Manage Expenses',
-  };
+  final Map<String, String> _permissionLabels = Permissions.shortLabels;
 
   @override
   void initState() {
@@ -806,25 +799,9 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
   String? _emailError;
 
   // Step 2: Permissions
-  final Map<String, bool> _permissions = {
-    'view_dashboard': false,
-    'view_crm_overview': false,
-    'manage_customers': false,
-    'view_inventory': false,
-    'edit_inventory': false,
-    'use_pos': false,
-    'manage_expenses': false,
-  };
+  final Map<String, bool> _permissions = Permissions.noneGranted();
 
-  final Map<String, String> _permissionLabels = {
-    'view_dashboard': 'View Dashboard',
-    'view_crm_overview': 'View CRM Overview',
-    'manage_customers': 'Manage Customers (View/Edit profiles, tags, WhatsApp)',
-    'view_inventory': 'View Inventory',
-    'edit_inventory': 'Edit Inventory (Add/Edit/Delete products, adjust stock)',
-    'use_pos': 'Use POS (Make sales/checkout)',
-    'manage_expenses': 'Manage Expenses',
-  };
+  final Map<String, String> _permissionLabels = Permissions.detailedLabels;
 
   // Step 3: Finish
   bool _isSubmitting = false;
