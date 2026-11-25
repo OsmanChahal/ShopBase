@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../widgets/offline_scope_boundary.dart';
 import 'manage_staff_screen.dart';
 import '../utils/error_text.dart';
+import '../widgets/unsynced_sign_out_dialog.dart';
 
 part 'settings/manage_tags_section.dart';
 
@@ -265,35 +266,8 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     SignOutOutcome outcome,
     NavigatorState nav,
   ) async {
-    final onlyFailed = outcome.pending == 0;
-    final discard = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Can't sign out yet"),
-        content: Text(
-          onlyFailed
-              ? '${outcome.failed} change(s) could not be synced to the server. '
-                    'Signing out now will permanently discard them.'
-              : '${outcome.pending} change(s) have not synced yet. '
-                    'Connect to the internet and try again, so nothing is lost.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(onlyFailed ? 'Cancel' : 'OK'),
-          ),
-          if (onlyFailed)
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(ctx).colorScheme.error,
-              ),
-              child: const Text('Discard & sign out'),
-            ),
-        ],
-      ),
-    );
-    if (discard == true) {
+    final discard = await showUnsyncedSignOutDialog(context, outcome);
+    if (discard) {
       final result = await ref
           .read(sessionActionsProvider)
           .signOut(discardUnsynced: true);
