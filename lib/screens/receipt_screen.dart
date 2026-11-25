@@ -156,7 +156,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                 children: [
                   // Business name
                   Text(
-                    business?.name ?? 'Business',
+                    widget.businessName ?? business?.name ?? 'Business',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
