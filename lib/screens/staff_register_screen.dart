@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
 import 'staff_waiting_screen.dart';
+import '../utils/validators.dart';
+import '../utils/error_text.dart';
 
 class StaffRegisterScreen extends ConsumerStatefulWidget {
   const StaffRegisterScreen({super.key});
@@ -77,7 +79,7 @@ class _StaffRegisterScreenState extends ConsumerState<StaffRegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(errorText(e)),
             backgroundColor: AppColors.statusError,
           ),
         );
@@ -130,11 +132,7 @@ class _StaffRegisterScreenState extends ConsumerState<StaffRegisterScreen> {
                     labelText: 'Email *',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Please enter your email';
-                    if (!value.contains('@')) return 'Please enter a valid email';
-                    return null;
-                  },
+                  validator: validateEmailBasic,
                 ),
                 const SizedBox(height: 32),
                 SizedBox(

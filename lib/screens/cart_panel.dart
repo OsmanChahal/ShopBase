@@ -14,6 +14,8 @@ import '../sync/sync_provider.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/tag_picker_sheet.dart';
 import 'receipt_screen.dart';
+import '../utils/formatters.dart';
+import '../utils/error_text.dart';
 
 class CartPanel extends ConsumerStatefulWidget {
   const CartPanel({super.key});
@@ -93,7 +95,7 @@ class _CartPanelState extends ConsumerState<CartPanel> {
         setState(() => _isCheckingOut = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(errorText(e)),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 4),
           ),
@@ -278,9 +280,7 @@ class _CartPanelState extends ConsumerState<CartPanel> {
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(e
-                                      .toString()
-                                      .replaceAll('Exception: ', '')),
+                                  content: Text(errorText(e)),
                                   backgroundColor: theme.colorScheme.error,
                                 ),
                               );
@@ -356,7 +356,7 @@ class _CartPanelState extends ConsumerState<CartPanel> {
                         const SizedBox(height: 4),
                         _TotalRow(
                           label: 'Total (LBP)',
-                          value: 'LBP ${_formatLbpFull(totalLbp)}',
+                          value: 'LBP ${formatLbpFull(totalLbp)}',
                           isPrimary: currencyDisplay == 'LBP',
                           theme: theme,
                         ),
@@ -454,21 +454,6 @@ class _CartPanelState extends ConsumerState<CartPanel> {
               ),
       ),
     );
-  }
-
-  String _formatLbpFull(double amount) {
-    // Format with thousand separators
-    final str = amount.toStringAsFixed(0);
-    final buffer = StringBuffer();
-    int count = 0;
-    for (int i = str.length - 1; i >= 0; i--) {
-      if (count > 0 && count % 3 == 0) {
-        buffer.write(',');
-      }
-      buffer.write(str[i]);
-      count++;
-    }
-    return buffer.toString().split('').reversed.join();
   }
 }
 
@@ -927,7 +912,7 @@ class _CustomerSearchSheetState
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
                         content: Text(
-                          e.toString().replaceAll('Exception: ', ''),
+                          errorText(e),
                         ),
                       ),
                     );

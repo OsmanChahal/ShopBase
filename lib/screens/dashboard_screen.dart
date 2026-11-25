@@ -10,6 +10,7 @@ import '../widgets/pill_button.dart';
 import '../widgets/stat_badge.dart';
 import 'expense_list_screen.dart';
 import 'pos_screen.dart';
+import '../utils/formatters.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -158,7 +159,7 @@ class _TodayCard extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  'LBP ${_formatLbp(snapshot.totalUsd * rate)}',
+                  'LBP ${formatLbpFull(snapshot.totalUsd * rate)}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: Colors.white.withValues(alpha: 0.8),
                   ),
@@ -184,18 +185,6 @@ class _TodayCard extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  String _formatLbp(double amount) {
-    final str = amount.toStringAsFixed(0);
-    final buf = StringBuffer();
-    int c = 0;
-    for (int i = str.length - 1; i >= 0; i--) {
-      if (c > 0 && c % 3 == 0) buf.write(',');
-      buf.write(str[i]);
-      c++;
-    }
-    return buf.toString().split('').reversed.join();
   }
 }
 
@@ -258,7 +247,7 @@ class _FinancialCard extends ConsumerWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${netProfit < 0 ? '-' : ''}\$${netProfit.abs().toStringAsFixed(2)}',
+                          formatSignedUsd(netProfit),
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
@@ -611,7 +600,7 @@ class _DateRangeCard extends ConsumerWidget {
                     _StatLine(
                       label: 'Net Capital',
                       value:
-                          '${snapshot.capitalUsd < 0 ? '-' : ''}\$${snapshot.capitalUsd.abs().toStringAsFixed(2)}',
+                          formatSignedUsd(snapshot.capitalUsd),
                       valueColor: snapshot.capitalUsd >= 0
                           ? AppColors.emeraldGreen
                           : AppColors.statusError,

@@ -5,6 +5,7 @@ import '../models/expense.dart';
 import '../providers/auth_provider.dart';
 import '../providers/expense_provider.dart';
 import '../widgets/loading_overlay.dart';
+import '../utils/error_text.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
   final Expense? expense;
@@ -93,7 +94,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(errorText(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -138,7 +139,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(errorText(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/sale.dart';
 import '../providers/sale_provider.dart';
 import 'receipt_screen.dart';
+import '../utils/formatters.dart';
+import '../utils/error_text.dart';
 
 class SalesHistoryScreen extends ConsumerWidget {
   const SalesHistoryScreen({super.key});
@@ -42,7 +44,7 @@ class SalesHistoryScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  error.toString().replaceAll('Exception: ', ''),
+                  errorText(error),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color:
                         theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -159,7 +161,7 @@ class SalesHistoryScreen extends ConsumerWidget {
         Navigator.of(context).pop(); // Close loading
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(errorText(e)),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -211,7 +213,7 @@ class _SaleHistoryTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _monthAbbr(localTime.month),
+                      monthAbbr(localTime.month),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.primary,
                         fontSize: 10,
@@ -237,7 +239,7 @@ class _SaleHistoryTile extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'LBP ${_formatLbpShort(sale.totalLbp)}',
+                          'LBP ${formatLbpCompact(sale.totalLbp)}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.5),
@@ -247,7 +249,7 @@ class _SaleHistoryTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatTime(localTime),
+                      formatTime12h(localTime),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurface
                             .withValues(alpha: 0.4),
@@ -281,7 +283,7 @@ class _SaleHistoryTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      sale.paymentType == 'cash' ? 'Cash' : 'Card',
+                      paymentTypeLabel(sale.paymentType),
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: sale.paymentType == 'cash'
@@ -304,29 +306,5 @@ class _SaleHistoryTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _monthAbbr(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[month - 1];
-  }
-
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
-    final min = dt.minute.toString().padLeft(2, '0');
-    return '$hour:$min $amPm';
-  }
-
-  String _formatLbpShort(double amount) {
-    if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(1)}M';
-    } else if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(0)}K';
-    }
-    return amount.toStringAsFixed(0);
   }
 }

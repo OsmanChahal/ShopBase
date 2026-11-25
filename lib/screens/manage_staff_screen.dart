@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/inventory_access_widgets.dart';
+import '../utils/error_text.dart';
 
 class ManageStaffScreen extends ConsumerStatefulWidget {
   const ManageStaffScreen({super.key});
@@ -873,7 +874,7 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
       }
     } catch (e) {
       setState(() {
-        _emailError = e.toString().replaceAll('Exception: ', '');
+        _emailError = errorText(e);
       });
     } finally {
       if (mounted) setState(() => _isCheckingEmail = false);
@@ -909,7 +910,7 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(errorText(e)),
             backgroundColor: AppColors.statusError,
           ),
         );

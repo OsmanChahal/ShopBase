@@ -12,6 +12,8 @@ import '../widgets/connectivity_banner.dart';
 import '../widgets/inventory_ui_helpers.dart';
 import 'cart_panel.dart';
 import 'sales_history_screen.dart';
+import '../utils/formatters.dart';
+import '../utils/error_text.dart';
 
 const _brand = Color(0xFF4A154B);
 const _brandEnd = Color(0xFF6B21A8);
@@ -27,11 +29,6 @@ const _amber = Color(0xFFF59E0B);
 
 /// Selected category tab (null = All Items).
 final posCategoryProvider = StateProvider<String?>((ref) => null);
-
-String _fmtLbp(double v) => v.round().toString().replaceAllMapped(
-  RegExp(r'\B(?=(\d{3})+(?!\d))'),
-  (_) => ',',
-);
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -78,7 +75,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       ref.read(cartProvider.notifier).addToCart(product);
       _toast('${product.name} added to cart');
     } catch (e) {
-      _toast(e.toString().replaceAll('Exception: ', ''), error: true);
+      _toast(errorText(e), error: true);
     }
   }
 
@@ -86,7 +83,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     try {
       ref.read(cartProvider.notifier).incrementQuantity(productId);
     } catch (e) {
-      _toast(e.toString().replaceAll('Exception: ', ''), error: true);
+      _toast(errorText(e), error: true);
     }
   }
 
@@ -631,7 +628,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            e.toString().replaceAll('Exception: ', ''),
+            errorText(e),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13,
@@ -1052,7 +1049,7 @@ class _PosProductCard extends StatelessWidget {
                           ),
                           if (rate > 0)
                             Text(
-                              'LBP ${_fmtLbp(product.sellPriceUsd * rate)}',
+                              'LBP ${formatLbpRounded(product.sellPriceUsd * rate)}',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 10,

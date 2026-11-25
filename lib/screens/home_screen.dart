@@ -11,6 +11,7 @@ import 'dashboard_screen.dart';
 import 'pos_screen.dart';
 import 'product_list_screen.dart';
 import 'settings_sheet.dart';
+import '../utils/error_text.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -68,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (mounted) {
         setState(() {
           _isPulling = false;
-          _pullError = e.toString().replaceAll('Exception: ', '');
+          _pullError = errorText(e);
         });
       }
     }

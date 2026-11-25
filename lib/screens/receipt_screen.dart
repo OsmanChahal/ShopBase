@@ -4,6 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/sale.dart';
 import '../providers/auth_provider.dart';
+import '../utils/formatters.dart';
+import '../utils/phone.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
   final Sale sale;
@@ -42,7 +44,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
   /// Strips all non-digit characters — produces the digits-only international
   /// number required by wa.me (e.g. "96170123456").
   String get _cleanedPhone =>
-      (widget.customerPhone ?? '').replaceAll(RegExp(r'\D'), '');
+      digitsOnly(widget.customerPhone ?? '');
 
   /// Builds the plain-text WhatsApp receipt message from the sale data.
   String _buildReceiptMessage() {
@@ -54,9 +56,9 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
         widget.businessName ?? business?.name ?? 'Our Store';
 
     final dateStr = _formatDate(localTime);
-    final timeStr = _formatTime(localTime);
+    final timeStr = formatTime12h(localTime);
     final paymentLabel =
-        sale.paymentType == 'cash' ? 'Cash' : 'Card';
+        paymentTypeLabel(sale.paymentType);
 
     final buffer = StringBuffer();
     buffer.writeln('🧾 *Receipt from $businessName*');
@@ -73,7 +75,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
 
     buffer.writeln();
     buffer.writeln(
-        '💵 *Total: \$${sale.totalUsd.toStringAsFixed(2)}*  (LBP ${_formatLbp(sale.totalLbp)})');
+        '💵 *Total: \$${sale.totalUsd.toStringAsFixed(2)}*  (LBP ${formatLbpFull(sale.totalLbp)})');
     buffer.writeln('💳 Payment: $paymentLabel');
     buffer.writeln();
     buffer.write('Thank you for your purchase! 🙏');
@@ -209,7 +211,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
 
                   // Timestamp
                   Text(
-                    '${_formatDate(localTime)} at ${_formatTime(localTime)}',
+                    '${_formatDate(localTime)} at ${formatTime12h(localTime)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface
                           .withValues(alpha: 0.5),
@@ -343,7 +345,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                                 .withValues(alpha: 0.6),
                           )),
                       Text(
-                        'LBP ${_formatLbp(widget.sale.totalLbp)}',
+                        'LBP ${formatLbpFull(widget.sale.totalLbp)}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurface
@@ -463,31 +465,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
   // ── Formatters ────────────────────────────────────────────────────────────
 
   String _formatDate(DateTime dt) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
-  }
-
-  String _formatTime(DateTime dt) {
-    final hour =
-        dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
-    final min = dt.minute.toString().padLeft(2, '0');
-    return '$hour:$min $amPm';
-  }
-
-  String _formatLbp(double amount) {
-    final str = amount.toStringAsFixed(0);
-    final buffer = StringBuffer();
-    int count = 0;
-    for (int i = str.length - 1; i >= 0; i--) {
-      if (count > 0 && count % 3 == 0) buffer.write(',');
-      buffer.write(str[i]);
-      count++;
-    }
-    return buffer.toString().split('').reversed.join();
+    return '${dt.day} ${monthAbbr(dt.month)} ${dt.year}';
   }
 }
 

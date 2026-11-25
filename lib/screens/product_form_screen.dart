@@ -7,6 +7,7 @@ import '../providers/product_provider.dart';
 import '../widgets/loading_overlay.dart';
 import 'stock_adjust_dialog.dart';
 import '../widgets/transfer_stock_sheet.dart';
+import '../utils/error_text.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   /// If null, we're adding a new product. If non-null, we're editing.
@@ -198,7 +199,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(errorText(e));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -242,7 +243,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(errorText(e));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

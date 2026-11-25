@@ -18,6 +18,8 @@ import '../widgets/offline_scope_boundary.dart';
 import '../widgets/stat_badge.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
+import '../utils/formatters.dart';
+import '../utils/error_text.dart';
 
 /// Family provider to fetch monthly order count for a customer list row.
 final _customerMonthlyOrderCountProvider =
@@ -701,7 +703,7 @@ class _AverageOrderCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'LBP ${_formatLbp(avgValue * rate)}',
+                      'LBP ${formatLbpFull(avgValue * rate)}',
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -710,18 +712,6 @@ class _AverageOrderCard extends StatelessWidget {
               ],
             ),
     );
-  }
-
-  String _formatLbp(double amount) {
-    final str = amount.toStringAsFixed(0);
-    final buf = StringBuffer();
-    int c = 0;
-    for (int i = str.length - 1; i >= 0; i--) {
-      if (c > 0 && c % 3 == 0) buf.write(',');
-      buf.write(str[i]);
-      c++;
-    }
-    return buf.toString().split('').reversed.join();
   }
 }
 
@@ -1097,7 +1087,7 @@ class _CustomerListSection extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      error.toString().replaceAll('Exception: ', ''),
+                      errorText(error),
                       style: const TextStyle(
                           fontSize: 13, color: AppColors.textSecondary),
                       textAlign: TextAlign.center,

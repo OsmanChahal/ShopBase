@@ -7,6 +7,7 @@ import '../providers/inventory_provider.dart';
 import '../widgets/location_form_widgets.dart';
 import '../widgets/transfer_stock_sheet.dart';
 import '../widgets/inventory_access_widgets.dart';
+import '../utils/error_text.dart';
 
 class EditLocationScreen extends ConsumerStatefulWidget {
   final String inventoryId;
@@ -54,7 +55,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _serverError = e.toString().replaceAll('Exception: ', '');
+        _serverError = errorText(e);
       });
     }
   }
@@ -98,7 +99,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
       if (!mounted) return;
       setState(() => _busy = false);
       messenger.showSnackBar(
-        SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        SnackBar(content: Text(errorText(e))),
       );
     }
   }

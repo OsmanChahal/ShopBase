@@ -5,6 +5,7 @@ import '../models/customer.dart';
 import '../providers/auth_provider.dart';
 import '../providers/customer_provider.dart';
 import '../widgets/loading_overlay.dart';
+import '../utils/error_text.dart';
 
 class CustomerFormScreen extends ConsumerStatefulWidget {
   final Customer? customer;
@@ -94,7 +95,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         Navigator.of(context).pop(true); // true = changed
       }
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(errorText(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -140,7 +141,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(errorText(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

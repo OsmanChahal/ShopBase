@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
 import '../providers/product_provider.dart';
+import '../utils/error_text.dart';
 
 /// A modal bottom sheet for quickly adjusting stock quantity.
 class StockAdjustDialog extends ConsumerStatefulWidget {
@@ -81,7 +82,7 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(errorText(e)),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

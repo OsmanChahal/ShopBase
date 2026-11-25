@@ -15,6 +15,7 @@ import 'product_form_screen.dart';
 import 'stock_adjust_dialog.dart';
 import 'add_location_screen.dart';
 import 'manage_locations_screen.dart';
+import '../utils/error_text.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -184,7 +185,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          e.toString().replaceAll('Exception: ', ''),
+                          errorText(e),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 13,

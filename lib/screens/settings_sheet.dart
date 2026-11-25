@@ -9,6 +9,7 @@ import '../providers/tag_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/offline_scope_boundary.dart';
 import 'manage_staff_screen.dart';
+import '../utils/error_text.dart';
 
 class SettingsSheet extends ConsumerStatefulWidget {
   const SettingsSheet({super.key});
@@ -114,7 +115,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _nameErrorText = e.toString().replaceAll('Exception: ', '');
+          _nameErrorText = errorText(e);
         });
       }
     } finally {
@@ -162,7 +163,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _businessTypeErrorText = e.toString().replaceAll('Exception: ', '');
+          _businessTypeErrorText = errorText(e);
         });
       }
     } finally {
@@ -205,7 +206,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _rateErrorText = e.toString().replaceAll('Exception: ', '');
+          _rateErrorText = errorText(e);
         });
       }
     } finally {
@@ -847,7 +848,7 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _tagError = e.toString().replaceAll('Exception: ', '');
+          _tagError = errorText(e);
         });
       }
     } finally {
@@ -894,7 +895,7 @@ class _ManageTagsSectionState extends ConsumerState<_ManageTagsSection> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to delete: ${e.toString().replaceAll('Exception: ', '')}',
+                'Failed to delete: ${errorText(e)}',
               ),
             ),
           );

@@ -4,6 +4,7 @@ import '../models/expense.dart';
 import '../providers/expense_provider.dart';
 import '../widgets/offline_scope_boundary.dart';
 import 'expense_form_screen.dart';
+import '../utils/error_text.dart';
 
 class ExpenseListScreen extends ConsumerWidget {
   const ExpenseListScreen({super.key});
@@ -40,7 +41,7 @@ class ExpenseListScreen extends ConsumerWidget {
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                Text(error.toString().replaceAll('Exception: ', ''),
+                Text(errorText(error),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(

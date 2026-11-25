@@ -16,6 +16,9 @@ import '../widgets/offline_scope_boundary.dart';
 import '../widgets/tag_picker_sheet.dart';
 import 'customer_form_screen.dart';
 import 'receipt_screen.dart';
+import '../utils/formatters.dart';
+import '../utils/phone.dart';
+import '../utils/error_text.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -152,7 +155,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                     size: 56, color: AppColors.statusError),
                 const SizedBox(height: 16),
                 Text(
-                  error.toString().replaceAll('Exception: ', ''),
+                  errorText(error),
                   style: const TextStyle(color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 16),
@@ -578,7 +581,7 @@ class _CustomerDetailBody extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              _monthAbbr(local.month),
+                              monthAbbr(local.month),
                               style: const TextStyle(
                                 color: AppColors.primaryPurple,
                                 fontSize: 9,
@@ -596,7 +599,7 @@ class _CustomerDetailBody extends ConsumerWidget {
                         ),
                       ),
                       subtitle: Text(
-                        '${_formatTime(local)} · ${sale.paymentType == 'cash' ? 'Cash' : 'Card'}',
+                        '${formatTime12h(local)} · ${paymentTypeLabel(sale.paymentType)}',
                         style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary),
@@ -606,7 +609,7 @@ class _CustomerDetailBody extends ConsumerWidget {
                         children: [
                           if (currencyRate > 0)
                             Text(
-                              'LBP ${_formatLbp(sale.totalLbp)}',
+                              'LBP ${formatLbpFull(sale.totalLbp)}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -648,9 +651,7 @@ class _CustomerDetailBody extends ConsumerWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  e
-                                      .toString()
-                                      .replaceAll('Exception: ', ''),
+                                  errorText(e),
                                 ),
                               ),
                             );
@@ -667,32 +668,6 @@ class _CustomerDetailBody extends ConsumerWidget {
       ),
     );
   }
-
-  String _monthAbbr(int m) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[m - 1];
-  }
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final ap = dt.hour >= 12 ? 'PM' : 'AM';
-    return '$h:${dt.minute.toString().padLeft(2, '0')} $ap';
-  }
-
-  String _formatLbp(double amount) {
-    final str = amount.toStringAsFixed(0);
-    final buffer = StringBuffer();
-    int count = 0;
-    for (int i = str.length - 1; i >= 0; i--) {
-      if (count > 0 && count % 3 == 0) buffer.write(',');
-      buffer.write(str[i]);
-      count++;
-    }
-    return buffer.toString().split('').reversed.join();
-  }
 }
 
 // ── WhatsApp Button ───────────────────────────────────────────────────────────
@@ -703,7 +678,7 @@ class _WhatsAppButton extends StatelessWidget {
   const _WhatsAppButton({required this.phone});
 
   /// Strips all non-digit characters for wa.me (international format, no +/spaces).
-  String get _waPhone => phone.replaceAll(RegExp(r'\D'), '');
+  String get _waPhone => digitsOnly(phone);
 
   Future<void> _openWhatsApp(BuildContext context) async {
     final digits = _waPhone;
@@ -867,7 +842,7 @@ class _CustomerTagsSection extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Could not remove tag: ${e.toString().replaceAll('Exception: ', '')}',
+              'Could not remove tag: ${errorText(e)}',
             ),
           ),
         );

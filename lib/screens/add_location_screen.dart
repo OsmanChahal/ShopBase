@@ -10,6 +10,7 @@ import '../widgets/location_form_widgets.dart';
 import '../widgets/transfer_stock_sheet.dart';
 import '../providers/inventory_access_provider.dart';
 import '../widgets/inventory_access_widgets.dart';
+import '../utils/error_text.dart';
 
 class AddLocationScreen extends ConsumerStatefulWidget {
   const AddLocationScreen({super.key});
@@ -73,7 +74,7 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _serverError = e.toString().replaceAll('Exception: ', '');
+        _serverError = errorText(e);
       });
       return;
     }

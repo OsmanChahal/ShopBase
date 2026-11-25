@@ -4,6 +4,8 @@ import '../constants/business_types.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
 import 'subscription_screen.dart';
+import '../utils/validators.dart';
+import '../utils/error_text.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -65,7 +67,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              e.toString().replaceAll('Exception: ', ''),
+              errorText(e),
             ),
             backgroundColor: AppColors.statusError,
           ),
@@ -224,15 +226,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
+                  validator: validateNewPassword,
                 ),
                 const SizedBox(height: 16),
 
@@ -256,15 +250,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
+                  validator: (value) => validatePasswordConfirmation(
+                    value,
+                    _passwordController.text,
+                  ),
                 ),
                 const SizedBox(height: 32),
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
 import 'staff_password_setup_screen.dart';
+import '../utils/error_text.dart';
 
 class StaffWaitingScreen extends ConsumerStatefulWidget {
   final String invitationId;
@@ -56,7 +57,7 @@ class _StaffWaitingScreenState extends ConsumerState<StaffWaitingScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceAll('Exception: ', '');
+          _error = errorText(e);
         });
       }
     }

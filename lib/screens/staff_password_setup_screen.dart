@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
+import '../utils/validators.dart';
+import '../utils/error_text.dart';
 
 class StaffPasswordSetupScreen extends ConsumerStatefulWidget {
   final String invitationId;
@@ -73,7 +75,7 @@ class _StaffPasswordSetupScreenState extends ConsumerState<StaffPasswordSetupScr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(errorText(e)),
             backgroundColor: AppColors.statusError,
           ),
         );
@@ -134,11 +136,7 @@ class _StaffPasswordSetupScreenState extends ConsumerState<StaffPasswordSetupScr
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Please enter a password';
-                    if (value.length < 6) return 'Password must be at least 6 characters';
-                    return null;
-                  },
+                  validator: validateNewPassword,
                 ),
                 const SizedBox(height: 16),
                 
@@ -156,11 +154,10 @@ class _StaffPasswordSetupScreenState extends ConsumerState<StaffPasswordSetupScr
                       onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Please confirm your password';
-                    if (value != _passwordController.text) return 'Passwords do not match';
-                    return null;
-                  },
+                  validator: (value) => validatePasswordConfirmation(
+                    value,
+                    _passwordController.text,
+                  ),
                 ),
                 const SizedBox(height: 32),
                 

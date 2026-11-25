@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../theme/app_colors.dart';
 import 'stat_badge.dart';
+import '../utils/formatters.dart';
 
 enum ProductCardLayout { grid, list }
 
@@ -75,7 +76,7 @@ class ProductCard extends StatelessWidget {
             children: [
               const SizedBox(height: 2),
               Text(
-                '\$${product.sellPriceUsd.toStringAsFixed(2)} · LBP ${_formatLbp(lbpPrice)}',
+                '\$${product.sellPriceUsd.toStringAsFixed(2)} · LBP ${formatLbpCompact(lbpPrice)}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -142,7 +143,7 @@ class ProductCard extends StatelessWidget {
               ),
               if (currencyRate > 0)
                 Text(
-                  'LBP ${_formatLbp(lbpPrice)}',
+                  'LBP ${formatLbpCompact(lbpPrice)}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
@@ -183,14 +184,5 @@ class ProductCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatLbp(double amount) {
-    if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(1)}M';
-    } else if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(0)}K';
-    }
-    return amount.toStringAsFixed(0);
   }
 }

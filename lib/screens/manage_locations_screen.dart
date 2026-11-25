@@ -7,6 +7,7 @@ import '../providers/inventory_provider.dart';
 import '../widgets/location_form_widgets.dart';
 import 'add_location_screen.dart';
 import 'edit_location_screen.dart';
+import '../utils/error_text.dart';
 
 /// Design not provided: styled like the switcher sheet's location cards.
 class ManageLocationsScreen extends ConsumerWidget {
@@ -23,7 +24,7 @@ class ManageLocationsScreen extends ConsumerWidget {
       messenger.showSnackBar(SnackBar(content: Text('"${inv.name}" restored')));
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        SnackBar(content: Text(errorText(e))),
       );
     }
   }
