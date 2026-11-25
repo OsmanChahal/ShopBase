@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/customer.dart';
-import '../models/sale.dart';
 import '../models/tag.dart';
 import '../providers/auth_provider.dart';
+import '../providers/customer_detail_provider.dart';
 import '../providers/customer_provider.dart';
 import '../providers/sale_provider.dart';
 import '../providers/tag_provider.dart';
-import '../services/customer_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/offline_scope_boundary.dart';
@@ -19,52 +18,6 @@ import '../utils/formatters.dart';
 import '../utils/phone.dart';
 import '../services/whatsapp_service.dart';
 import '../utils/error_text.dart';
-
-// ── Providers ────────────────────────────────────────────────────────────────
-
-final _customerDetailProvider =
-    FutureProvider.family<Customer, String>((ref, customerId) async {
-  return ref.watch(customerServiceProvider).getCustomerById(customerId);
-});
-
-final _customerMonthlySalesProvider =
-    FutureProvider.family<int, String>((ref, customerId) async {
-  return ref
-      .watch(customerServiceProvider)
-      .getCustomerSalesThisMonth(customerId);
-});
-
-final _customerTotalSalesProvider =
-    FutureProvider.family<int, String>((ref, customerId) async {
-  return ref.watch(customerServiceProvider).getCustomerTotalSales(customerId);
-});
-
-final _customerFavoriteProductProvider =
-    FutureProvider.family<FavoriteProduct?, String>((ref, customerId) async {
-  return ref
-      .watch(customerServiceProvider)
-      .getCustomerFavoriteProduct(customerId);
-});
-
-/// History period enum — includes "All Time" as default.
-enum HistoryPeriod { allTime, thisWeek, thisMonth, lastMonth, custom }
-
-/// Record used as provider family key: (customerId, fromIso?, toIso?)
-typedef _SalesFilterKey = ({String id, String? from, String? to});
-
-final _customerSalesFilteredProvider =
-    FutureProvider.family<List<Sale>, _SalesFilterKey>((ref, key) async {
-  DateTime? from;
-  DateTime? to;
-  if (key.from != null) from = DateTime.parse(key.from!);
-  if (key.to != null) to = DateTime.parse(key.to!);
-
-  return ref.watch(customerServiceProvider).getSalesForCustomerFiltered(
-        key.id,
-        from: from,
-        to: to,
-      );
-});
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -82,52 +35,23 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   HistoryPeriod _historyPeriod = HistoryPeriod.allTime;
   DateTimeRange? _customRange;
 
-  _SalesFilterKey get _filterKey {
-    final range = _dateRange;
-    return (
-      id: widget.customerId,
-      from: range?.start.toIso8601String(),
-      to: range?.end.toIso8601String(),
-    );
-  }
+  CustomerSalesFilterKey get _filterKey =>
+      customerSalesFilterKey(widget.customerId, _dateRange);
 
-  DateTimeRange? get _dateRange {
-    final now = DateTime.now();
-    switch (_historyPeriod) {
-      case HistoryPeriod.allTime:
-        return null;
-      case HistoryPeriod.thisWeek:
-        final weekday = now.weekday; // 1 = Monday
-        final monday = now.subtract(Duration(days: weekday - 1));
-        return DateTimeRange(
-          start: DateTime(monday.year, monday.month, monday.day),
-          end: now,
-        );
-      case HistoryPeriod.thisMonth:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: now,
-        );
-      case HistoryPeriod.lastMonth:
-        final firstOfLastMonth = DateTime(now.year, now.month - 1, 1);
-        final lastOfLastMonth = DateTime(now.year, now.month, 0);
-        return DateTimeRange(start: firstOfLastMonth, end: lastOfLastMonth);
-      case HistoryPeriod.custom:
-        return _customRange;
-    }
-  }
+  DateTimeRange? get _dateRange =>
+      historyPeriodRange(_historyPeriod, customRange: _customRange);
 
   void _invalidateAll() {
-    ref.invalidate(_customerDetailProvider(widget.customerId));
-    ref.invalidate(_customerMonthlySalesProvider(widget.customerId));
-    ref.invalidate(_customerTotalSalesProvider(widget.customerId));
-    ref.invalidate(_customerFavoriteProductProvider(widget.customerId));
-    ref.invalidate(_customerSalesFilteredProvider(_filterKey));
+    ref.invalidate(customerDetailProvider(widget.customerId));
+    ref.invalidate(customerMonthlySalesProvider(widget.customerId));
+    ref.invalidate(customerTotalSalesProvider(widget.customerId));
+    ref.invalidate(customerFavoriteProductProvider(widget.customerId));
+    ref.invalidate(customerSalesFilteredProvider(_filterKey));
   }
 
   @override
   Widget build(BuildContext context) {
-    final customerAsync = ref.watch(_customerDetailProvider(widget.customerId));
+    final customerAsync = ref.watch(customerDetailProvider(widget.customerId));
     final business = ref.watch(currentBusinessProvider);
     final rate = business?.currencyRate ?? 0;
 
@@ -161,7 +85,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () =>
-                      ref.invalidate(_customerDetailProvider(widget.customerId)),
+                      ref.invalidate(customerDetailProvider(widget.customerId)),
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Retry'),
                 ),
@@ -200,7 +124,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             }
           },
           onCustomerEdited: () {
-            ref.invalidate(_customerDetailProvider(widget.customerId));
+            ref.invalidate(customerDetailProvider(widget.customerId));
             ref.invalidate(customerListProvider);
           },
         ),
@@ -218,7 +142,7 @@ class _CustomerDetailBody extends ConsumerWidget {
   final double currencyRate;
   final HistoryPeriod historyPeriod;
   final DateTimeRange? customRange;
-  final _SalesFilterKey filterKey;
+  final CustomerSalesFilterKey filterKey;
   final void Function(HistoryPeriod) onPeriodChanged;
   final VoidCallback onCustomerEdited;
 
@@ -237,11 +161,11 @@ class _CustomerDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final monthlyCountAsync =
-        ref.watch(_customerMonthlySalesProvider(customerId));
-    final totalCountAsync = ref.watch(_customerTotalSalesProvider(customerId));
+        ref.watch(customerMonthlySalesProvider(customerId));
+    final totalCountAsync = ref.watch(customerTotalSalesProvider(customerId));
     final favoriteProductAsync =
-        ref.watch(_customerFavoriteProductProvider(customerId));
-    final salesAsync = ref.watch(_customerSalesFilteredProvider(filterKey));
+        ref.watch(customerFavoriteProductProvider(customerId));
+    final salesAsync = ref.watch(customerSalesFilteredProvider(filterKey));
     final initial =
         customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?';
 

@@ -42,6 +42,12 @@ class SaleActions {
   SaleActions(this.ref);
 
   LocalSaleRepository get _saleRepo => ref.read(localSaleRepositoryProvider);
+
+  /// Line items for [saleId] from the local database, as app models.
+  Future<List<SaleItem>> getLocalSaleItems(String saleId) async {
+    final localItems = await _saleRepo.getSaleItems(saleId);
+    return localItems.map(localSaleItemToModel).toList();
+  }
   LocalProductRepository get _productRepo =>
       ref.read(localProductRepositoryProvider);
 
@@ -168,6 +174,19 @@ class SaleActions {
 final saleActionsProvider = Provider<SaleActions>((ref) {
   return SaleActions(ref);
 });
+
+/// Convert a drift LocalSaleItem row into the app-level SaleItem model.
+SaleItem localSaleItemToModel(LocalSaleItem li) {
+  return SaleItem(
+    id: li.id,
+    saleId: li.saleId,
+    productId: li.productId,
+    productNameSnapshot: li.productNameSnapshot,
+    quantity: li.quantity,
+    unitPriceUsd: li.unitPriceUsd,
+    subtotalUsd: li.subtotalUsd,
+  );
+}
 
 /// Convert a drift LocalSale row into the app-level Sale model.
 Sale _localSaleToModel(LocalSale ls) {

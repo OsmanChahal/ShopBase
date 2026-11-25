@@ -27,7 +27,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOutOfStock = product.quantity <= 0;
+    final isOutOfStock = product.isOutOfStock;
     final isLowStock = product.isLowStock && !isOutOfStock;
     final lbpPrice = product.sellPriceUsd * currencyRate;
 

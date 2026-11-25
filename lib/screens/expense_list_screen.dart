@@ -85,10 +85,9 @@ class ExpenseListScreen extends ConsumerWidget {
           }
 
           // Separate recurring and one-off
-          final recurring =
-              expenses.where((e) => e.isRecurring).toList();
-          final oneOff =
-              expenses.where((e) => !e.isRecurring).toList();
+          final groups = ExpenseGroups(expenses);
+          final recurring = groups.recurring;
+          final oneOff = groups.oneOff;
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -102,8 +101,7 @@ class ExpenseListScreen extends ConsumerWidget {
                   _SectionHeader(
                     title: 'Recurring Monthly',
                     count: recurring.length,
-                    total: recurring.fold(
-                        0.0, (sum, e) => sum + e.amountUsd),
+                    total: groups.recurringTotal,
                     theme: theme,
                   ),
                   ...recurring.map((e) => _ExpenseTile(
@@ -115,8 +113,7 @@ class ExpenseListScreen extends ConsumerWidget {
                   _SectionHeader(
                     title: 'One-Off',
                     count: oneOff.length,
-                    total:
-                        oneOff.fold(0.0, (sum, e) => sum + e.amountUsd),
+                    total: groups.oneOffTotal,
                     theme: theme,
                   ),
                   ...oneOff.map((e) => _ExpenseTile(

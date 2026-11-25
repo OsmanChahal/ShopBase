@@ -18,6 +18,7 @@ import '../widgets/offline_scope_boundary.dart';
 import '../widgets/stat_badge.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
+import '../utils/chart_buckets.dart';
 import '../utils/formatters.dart';
 import '../utils/error_text.dart';
 import '../constants/permissions.dart';
@@ -398,30 +399,6 @@ class _PeriodSelector extends ConsumerWidget {
 // CHART HELPERS
 // ═══════════════════════════════════════════════════════════════════
 
-/// Aggregates daily [DateValue] data into weekly buckets
-/// (week starting on Monday).
-List<DateValue> _aggregateWeekly(List<DateValue> daily) {
-  if (daily.isEmpty) return [];
-  final grouped = <DateTime, double>{};
-  for (final dv in daily) {
-    // Monday of the ISO week
-    final weekday = dv.date.weekday; // 1=Mon
-    final monday = dv.date.subtract(Duration(days: weekday - 1));
-    final key = DateTime(monday.year, monday.month, monday.day);
-    grouped[key] = (grouped[key] ?? 0) + dv.value;
-  }
-  final result = grouped.entries
-      .map((e) => DateValue(date: e.key, value: e.value))
-      .toList()
-    ..sort((a, b) => a.date.compareTo(b.date));
-  return result;
-}
-
-/// Returns true if the range spans more than 31 days → use weekly.
-bool _shouldUseWeekly(DateTimeRange range) {
-  return range.end.difference(range.start).inDays > 31;
-}
-
 /// Formats a date for axis labels.
 String _axisDateLabel(DateTime dt, bool isWeekly) {
   return '${dt.day}/${dt.month}';
@@ -462,8 +439,8 @@ class _RevenueChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWeekly = _shouldUseWeekly(range);
-    final displayData = isWeekly ? _aggregateWeekly(data) : data;
+    final isWeekly = shouldUseWeekly(range);
+    final displayData = isWeekly ? aggregateWeekly(data) : data;
 
     return MetricCard(
       title: 'Revenue Over Time',
@@ -477,7 +454,7 @@ class _RevenueChart extends StatelessWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: _calcInterval(
+                    horizontalInterval: chartGridInterval(
                         displayData.map((d) => d.value).reduce(math.max)),
                     getDrawingHorizontalLine: (_) => FlLine(
                       color: AppColors.borderLight,
@@ -565,7 +542,7 @@ class _TopProductsChart extends StatelessWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: _calcInterval(
+                    horizontalInterval: chartGridInterval(
                         data.first.quantity.toDouble()),
                     getDrawingHorizontalLine: (_) => FlLine(
                       color: AppColors.borderLight,
@@ -728,8 +705,8 @@ class _OrdersChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWeekly = _shouldUseWeekly(range);
-    final displayData = isWeekly ? _aggregateWeekly(data) : data;
+    final isWeekly = shouldUseWeekly(range);
+    final displayData = isWeekly ? aggregateWeekly(data) : data;
 
     return MetricCard(
       title: 'Orders Per Period',
@@ -749,7 +726,7 @@ class _OrdersChart extends StatelessWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: _calcInterval(
+                    horizontalInterval: chartGridInterval(
                         displayData.map((d) => d.value).reduce(math.max)),
                     getDrawingHorizontalLine: (_) => FlLine(
                       color: AppColors.borderLight,
@@ -811,8 +788,8 @@ class _NewCustomersChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWeekly = _shouldUseWeekly(range);
-    final displayData = isWeekly ? _aggregateWeekly(data) : data;
+    final isWeekly = shouldUseWeekly(range);
+    final displayData = isWeekly ? aggregateWeekly(data) : data;
 
     return MetricCard(
       title: 'New Customers',
@@ -826,7 +803,7 @@ class _NewCustomersChart extends StatelessWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: _calcInterval(
+                    horizontalInterval: chartGridInterval(
                         displayData.map((d) => d.value).reduce(math.max)),
                     getDrawingHorizontalLine: (_) => FlLine(
                       color: AppColors.borderLight,
@@ -996,17 +973,6 @@ FlTitlesData _barTitles(List<DateValue> data, bool isWeekly) {
       ),
     ),
   );
-}
-
-/// Compute a nice interval for horizontal grid lines.
-double _calcInterval(double maxValue) {
-  if (maxValue <= 0) return 1;
-  if (maxValue <= 5) return 1;
-  if (maxValue <= 20) return 5;
-  if (maxValue <= 100) return 20;
-  if (maxValue <= 500) return 100;
-  if (maxValue <= 2000) return 500;
-  return (maxValue / 5).ceilToDouble();
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -15,6 +15,21 @@ final expenseListProvider = FutureProvider<List<Expense>>((ref) async {
   return ref.watch(expenseServiceProvider).getExpenses(business.id);
 });
 
+/// Expenses split into recurring and one-off, with their USD totals.
+/// Both lists keep the input order.
+class ExpenseGroups {
+  final List<Expense> recurring;
+  final List<Expense> oneOff;
+
+  ExpenseGroups(List<Expense> expenses)
+      : recurring = expenses.where((e) => e.isRecurring).toList(),
+        oneOff = expenses.where((e) => !e.isRecurring).toList();
+
+  double get recurringTotal =>
+      recurring.fold(0.0, (sum, e) => sum + e.amountUsd);
+  double get oneOffTotal => oneOff.fold(0.0, (sum, e) => sum + e.amountUsd);
+}
+
 /// Helper class for expense actions that need to invalidate the list.
 class ExpenseActions {
   final Ref ref;

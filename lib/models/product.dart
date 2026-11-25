@@ -30,6 +30,9 @@ class Product {
   /// Whether the product is at or below its low stock threshold.
   bool get isLowStock => quantity <= lowStockThreshold;
 
+  /// Whether the product has no stock left (zero or negative).
+  bool get isOutOfStock => quantity <= 0;
+
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: json['id'] as String?,

@@ -727,7 +727,7 @@ class _ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final out = product.quantity <= 0;
+    final out = product.isOutOfStock;
     final low = product.isLowStock && !out;
     final restock = low || out;
     final sub = out

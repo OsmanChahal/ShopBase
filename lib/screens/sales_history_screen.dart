@@ -128,20 +128,8 @@ class SalesHistoryScreen extends ConsumerWidget {
 
     try {
       // Fetch sale items from local database
-      final localItems =
-          await ref.read(localSaleRepositoryProvider).getSaleItems(sale.id);
-
-      final items = localItems
-          .map((li) => SaleItem(
-                id: li.id,
-                saleId: li.saleId,
-                productId: li.productId,
-                productNameSnapshot: li.productNameSnapshot,
-                quantity: li.quantity,
-                unitPriceUsd: li.unitPriceUsd,
-                subtotalUsd: li.subtotalUsd,
-              ))
-          .toList();
+      final items =
+          await ref.read(saleActionsProvider).getLocalSaleItems(sale.id);
 
       final saleWithItems = sale.copyWith(items: items);
 

@@ -8,6 +8,7 @@ import '../widgets/loading_overlay.dart';
 import 'stock_adjust_dialog.dart';
 import '../widgets/transfer_stock_sheet.dart';
 import '../utils/error_text.dart';
+import '../utils/product_rules.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   /// If null, we're adding a new product. If non-null, we're editing.
@@ -108,35 +109,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   /// existing casing instead of creating a near-duplicate.
   String? _resolveCategoryToSave() {
     final categories = ref.read(productCategoryProvider).valueOrNull ?? [];
-
-    // No categories exist yet, or none have loaded — whatever's typed in
-    // the plain text field is the answer.
-    if (categories.isEmpty) {
-      final typed = _categoryController.text.trim();
-      return typed.isEmpty ? null : typed;
-    }
-
-    // An existing category was picked directly from the dropdown.
-    if (_selectedCategory != null &&
-        _selectedCategory != _createNewCategorySentinel) {
-      return _selectedCategory;
-    }
-
-    // "+ Create new category" was chosen — check for a case-insensitive
-    // match before treating it as genuinely new.
-    if (_selectedCategory == _createNewCategorySentinel) {
-      final typed = _categoryController.text.trim();
-      if (typed.isEmpty) return null;
-
-      for (final existing in categories) {
-        if (existing.toLowerCase() == typed.toLowerCase()) {
-          return existing; // reuse existing casing
-        }
-      }
-      return typed; // genuinely new
-    }
-
-    return null; // nothing selected — category is optional
+    return resolveCategoryToSave(
+      existingCategories: categories,
+      selected: _selectedCategory,
+      typed: _categoryController.text,
+      createNewSentinel: _createNewCategorySentinel,
+    );
   }
 
   Future<void> _handleSave() async {

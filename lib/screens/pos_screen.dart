@@ -12,6 +12,7 @@ import '../widgets/connectivity_banner.dart';
 import '../widgets/inventory_ui_helpers.dart';
 import 'cart_panel.dart';
 import 'sales_history_screen.dart';
+import '../providers/pos_provider.dart';
 import '../utils/formatters.dart';
 import '../utils/error_text.dart';
 
@@ -26,9 +27,6 @@ const _slate700 = Color(0xFF334155);
 const _slate900 = Color(0xFF0F172A);
 const _emerald = Color(0xFF10B981);
 const _amber = Color(0xFFF59E0B);
-
-/// Selected category tab (null = All Items).
-final posCategoryProvider = StateProvider<String?>((ref) => null);
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -209,19 +207,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final noPosAtAll = posList != null && posList.isEmpty && currentId != null;
 
     // Categories come from the products of the current location
-    final counts = <String, int>{};
-    for (final p in all) {
-      final c = p.category?.trim();
-      if (c != null && c.isNotEmpty) counts[c] = (counts[c] ?? 0) + 1;
-    }
+    final counts = productCountsByCategory(all);
     final categories = counts.keys.toList()..sort();
     final selectedRaw = ref.watch(posCategoryProvider);
     final selected = counts.containsKey(selectedRaw) ? selectedRaw : null;
 
     final products = searched.whenData(
-      (list) => selected == null
-          ? list
-          : list.where((p) => p.category?.trim() == selected).toList(),
+      (list) => filterByCategory(list, selected),
     );
 
     return Scaffold(
@@ -908,7 +900,7 @@ class _PosProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final q = product.quantity;
-    final out = q <= 0;
+    final out = product.isOutOfStock;
     final low = product.isLowStock && !out;
     final badgeColor = out ? AppColors.statusError : (low ? _amber : _emerald);
     final badgeText = out
