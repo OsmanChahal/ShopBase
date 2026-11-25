@@ -198,7 +198,7 @@ class _CustomerSearchSheetState
                 autofocus: true,
                 onChanged: (val) => setState(() => _query = val),
                 decoration: const InputDecoration(
-                  hintText: 'Search by name...',
+                  hintText: 'Search by name or phone...',
                   prefixIcon: Icon(Icons.search),
                 ),
               ),
@@ -211,13 +211,9 @@ class _CustomerSearchSheetState
                     child: Text('Failed to load customers: $err'),
                   ),
                   data: (customers) {
-                    final filtered = _query.isEmpty
-                        ? customers
-                        : customers
-                            .where((c) => c.name
-                                .toLowerCase()
-                                .contains(_query.toLowerCase()))
-                            .toList();
+                    final filtered = customers
+                        .where((c) => customerMatchesQuery(c, _query))
+                        .toList();
 
                     if (filtered.isEmpty) {
                       return Center(

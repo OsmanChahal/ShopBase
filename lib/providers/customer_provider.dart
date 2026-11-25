@@ -45,15 +45,19 @@ final filteredCustomerListProvider = Provider<AsyncValue<List<Customer>>>((
 
   return customersAsync.whenData((customers) {
     if (query.isEmpty) return customers;
-    return customers
-        .where(
-          (c) =>
-              c.name.toLowerCase().contains(query) ||
-              (c.phone != null && c.phone!.contains(query)),
-        )
-        .toList();
+    return customers.where((c) => customerMatchesQuery(c, query)).toList();
   });
 });
+
+/// Customer search used by the Customers list and the POS customer picker:
+/// case-insensitive match on name, or substring match on the stored phone.
+/// [query] is trimmed and lowercased here; an empty query matches everyone.
+bool customerMatchesQuery(Customer c, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return true;
+  return c.name.toLowerCase().contains(q) ||
+      (c.phone != null && c.phone!.contains(q));
+}
 
 /// Helper class for customer actions that operate on the local database.
 /// Used from POS checkout flow for adding new customers inline.
