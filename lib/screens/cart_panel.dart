@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 import '../models/cart_item.dart';
 import '../models/customer.dart';
 import '../models/sale.dart';
@@ -129,79 +130,9 @@ class _CartPanelState extends ConsumerState<CartPanel> {
   }
 
   void _showPriceOverrideDialog(CartItem item) {
-    final controller = TextEditingController(
-      text: item.effectivePrice.toStringAsFixed(2),
-    );
-
     showDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text('Edit Price — ${item.productName}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Original price: \$${item.unitPriceUsd.toStringAsFixed(2)}',
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-              ),
-              Text(
-                'Cost price: \$${item.costPriceUsd.toStringAsFixed(2)}',
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'New price (USD)',
-                  prefixText: '\$ ',
-                ),
-                autofocus: true,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // Reset to original price
-                ref
-                    .read(cartProvider.notifier)
-                    .setOverridePrice(item.productId, null);
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Reset'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final val = double.tryParse(controller.text);
-                if (val != null && val >= 0) {
-                  ref
-                      .read(cartProvider.notifier)
-                      .setOverridePrice(item.productId, val);
-                }
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Apply'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _PriceOverrideDialog(item: item),
     );
   }
 
@@ -457,6 +388,101 @@ class _CartPanelState extends ConsumerState<CartPanel> {
                 ],
               ),
       ),
+    );
+  }
+}
+
+
+/// Dialog for overriding a cart line's unit price. A widget (rather than an
+/// inline builder) so the text controller is disposed with the dialog.
+class _PriceOverrideDialog extends ConsumerStatefulWidget {
+  final CartItem item;
+
+  const _PriceOverrideDialog({required this.item});
+
+  @override
+  ConsumerState<_PriceOverrideDialog> createState() =>
+      _PriceOverrideDialogState();
+}
+
+class _PriceOverrideDialogState extends ConsumerState<_PriceOverrideDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.item.effectivePrice.toStringAsFixed(2),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext ctx) {
+    final item = widget.item;
+    return AlertDialog(
+      title: Text('Edit Price — ${item.productName}'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Original price: \$${item.unitPriceUsd.toStringAsFixed(2)}',
+            style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(ctx)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                ),
+          ),
+          Text(
+            'Cost price: \$${item.costPriceUsd.toStringAsFixed(2)}',
+            style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(ctx)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+            ],
+            decoration: const InputDecoration(
+              labelText: 'New price (USD)',
+              prefixText: '\$ ',
+            ),
+            autofocus: true,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            // Reset to original price
+            ref
+                .read(cartProvider.notifier)
+                .setOverridePrice(item.productId, null);
+            Navigator.of(ctx).pop();
+          },
+          child: const Text('Reset'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final val = double.tryParse(_controller.text);
+            if (val != null && val >= 0) {
+              ref
+                  .read(cartProvider.notifier)
+                  .setOverridePrice(item.productId, val);
+            }
+            Navigator.of(ctx).pop();
+          },
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

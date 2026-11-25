@@ -140,77 +140,13 @@ class _CustomerSearchSheetState
 
   /// Lightweight inline customer creation for POS — writes to local DB + enqueues.
   void _showInlineCustomerDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Add Customer'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Name *',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone (optional)',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-
-                final business = ref.read(currentBusinessProvider);
-                if (business == null) return;
-
-                final phone = phoneController.text.trim();
-                try {
-                  final customer =
-                      await ref.read(customerActionsProvider).addCustomer(
-                            businessId: business.id,
-                            name: name,
-                            phone: phone.isEmpty ? null : phone,
-                          );
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (mounted) widget.onSelect(customer);
-                } catch (e) {
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          errorText(e),
-                        ),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _InlineCustomerDialog(
+        onCreated: (customer) {
+          if (mounted) widget.onSelect(customer);
+        },
+      ),
     );
   }
 
@@ -341,6 +277,104 @@ class _CustomerSearchSheetState
           ),
         );
       },
+    );
+  }
+}
+
+/// "Add Customer" dialog used from the POS customer search. Owns its text
+/// controllers, and saves the phone in the same international format as
+/// [CustomerFormScreen] (via [IntlPhoneField], defaulting to Lebanon).
+class _InlineCustomerDialog extends ConsumerStatefulWidget {
+  final void Function(Customer) onCreated;
+
+  const _InlineCustomerDialog({required this.onCreated});
+
+  @override
+  ConsumerState<_InlineCustomerDialog> createState() =>
+      _InlineCustomerDialogState();
+}
+
+class _InlineCustomerDialogState extends ConsumerState<_InlineCustomerDialog> {
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+
+  /// Full international number (e.g. "+96170123456"), or null when no
+  /// digits have been entered.
+  String? _completePhoneNumber;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+
+    final business = ref.read(currentBusinessProvider);
+    if (business == null) return;
+
+    try {
+      final customer = await ref.read(customerActionsProvider).addCustomer(
+            businessId: business.id,
+            name: name,
+            phone: _completePhoneNumber,
+          );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onCreated(customer);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorText(e))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Customer'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Name *',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 12),
+          IntlPhoneField(
+            controller: _phoneController,
+            initialCountryCode: 'LB',
+            decoration: const InputDecoration(
+              labelText: 'Phone (optional)',
+            ),
+            invalidNumberMessage: 'Enter a valid phone number',
+            onChanged: (phone) {
+              _completePhoneNumber =
+                  phone.number.trim().isEmpty ? null : phone.completeNumber;
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _add,
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }
