@@ -732,19 +732,8 @@ class _CustomerTagsSection extends ConsumerWidget {
 
   const _CustomerTagsSection({required this.customerId});
 
-  void _showTagPicker(BuildContext context, List<Tag> currentTags) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => TagPickerSheet(
-        customerId: customerId,
-        currentTags: currentTags,
-      ),
-    );
-  }
+  void _showTagPicker(BuildContext context, List<Tag> currentTags) =>
+      showTagPicker(context, customerId: customerId, currentTags: currentTags);
 
   Future<void> _removeTag(
       BuildContext context, WidgetRef ref, Tag tag) async {

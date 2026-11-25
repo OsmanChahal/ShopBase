@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_provider.dart';
 import '../database/local_inventory_repository.dart';
 import 'auth_provider.dart';
+import 'cart_provider.dart';
+import 'inventory_access_provider.dart';
 import 'inventory_provider.dart';
 import 'product_provider.dart';
 
@@ -58,6 +60,37 @@ class InventoryActions {
     await _repo.archiveInventory(id);
     // If the archived one was selected, the provider falls back automatically
     _refresh();
+  }
+
+  /// Archives [id]; if it was the working location, also empties the cart,
+  /// since the cart's stock came from it.
+  Future<void> archiveAndClearCartIfCurrent(String id) async {
+    final currentId = ref.read(currentInventoryIdProvider).valueOrNull;
+    await archive(id);
+    if (currentId == id) ref.read(cartProvider.notifier).clear();
+  }
+
+  /// Applies staff access [grants] (keyed by user id) to [inventoryId], one
+  /// at a time. Keeps going past failures and returns how many failed.
+  Future<int> applyAccessGrants(
+    String inventoryId,
+    Map<String, AccessGrant> grants,
+  ) async {
+    var failed = 0;
+    for (final e in grants.entries) {
+      try {
+        await setAccess(
+          inventoryId: inventoryId,
+          userId: e.key,
+          canPos: e.value.pos,
+          canView: e.value.view,
+          canEdit: e.value.edit,
+        );
+      } catch (_) {
+        failed++;
+      }
+    }
+    return failed;
   }
 
   Future<void> unarchive(String id) async {

@@ -7,6 +7,25 @@ import '../theme/app_colors.dart';
 /// Maximum number of tags allowed per customer.
 const int kMaxTagsPerCustomer = 4;
 
+/// Opens [TagPickerSheet] for a customer as a rounded bottom sheet.
+void showTagPicker(
+  BuildContext context, {
+  required String customerId,
+  required List<Tag> currentTags,
+}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => TagPickerSheet(
+      customerId: customerId,
+      currentTags: currentTags,
+    ),
+  );
+}
+
 /// A reusable bottom-sheet picker for attaching tags to a customer.
 ///
 /// Shows the business's tag library (minus already-attached tags),

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../providers/cart_provider.dart';
 import '../providers/inventory_actions_provider.dart';
 import '../providers/inventory_provider.dart';
 import '../widgets/location_form_widgets.dart';
 import '../widgets/transfer_stock_sheet.dart';
 import '../widgets/inventory_access_widgets.dart';
 import '../utils/error_text.dart';
+import '../utils/location_rules.dart';
 
 class EditLocationScreen extends ConsumerStatefulWidget {
   final String inventoryId;
@@ -88,9 +88,9 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
     final nav = Navigator.of(context);
     setState(() => _busy = true);
     try {
-      final currentId = ref.read(currentInventoryIdProvider).valueOrNull;
-      await ref.read(inventoryActionsProvider).archive(s.inventory.id);
-      if (currentId == s.inventory.id) ref.read(cartProvider.notifier).clear();
+      await ref
+          .read(inventoryActionsProvider)
+          .archiveAndClearCartIfCurrent(s.inventory.id);
       messenger.showSnackBar(
         SnackBar(content: Text('"${s.inventory.name}" archived')),
       );
@@ -141,32 +141,22 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
 
     final isPrimary = s.inventory.id == primaryId;
     final typed = _name.text.trim();
-    final dup = list.any(
-      (x) =>
-          x.inventory.id != s.inventory.id &&
-          x.inventory.name.toLowerCase() == typed.toLowerCase(),
+    final nameError = validateLocationName(
+      typed,
+      list
+          .where((x) => x.inventory.id != s.inventory.id)
+          .map((x) => x.inventory.name),
+      emptyMessage: 'Name is required',
     );
-    final nameError = typed.isEmpty
-        ? 'Name is required'
-        : typed.length > 40
-        ? 'Keep the name under 40 characters'
-        : dup
-        ? 'A location with this name already exists'
-        : null;
     final dirty = typed != s.inventory.name;
     final canSave = isAdmin && dirty && nameError == null && !_busy;
 
     // Archive rules (server enforces the same; primary is a UI-only rule)
-    String? archiveBlock;
-    if (isPrimary) {
-      archiveBlock = "The primary location can't be archived.";
-    } else if (list.length <= 1) {
-      archiveBlock = "You can't archive your last active location.";
-    } else if (s.units > 0) {
-      archiveBlock =
-          'Cannot archive while ${s.units} units are allocated. Transfer '
-          'the remaining stock out first.';
-    }
+    final archiveBlock = archiveBlockReason(
+      isPrimary: isPrimary,
+      activeLocationCount: list.length,
+      allocatedUnits: s.units,
+    );
     final canArchive = isAdmin && archiveBlock == null && !_busy;
 
     final low = s.lowStock;

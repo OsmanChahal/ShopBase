@@ -11,6 +11,7 @@ import '../widgets/transfer_stock_sheet.dart';
 import '../providers/inventory_access_provider.dart';
 import '../widgets/inventory_access_widgets.dart';
 import '../utils/error_text.dart';
+import '../utils/location_rules.dart';
 
 class AddLocationScreen extends ConsumerStatefulWidget {
   const AddLocationScreen({super.key});
@@ -31,35 +32,13 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
 
   final Map<String, AccessGrant> _draft = {};
 
-  Future<int> _applyDraftAccess(String inventoryId) async {
-    var failed = 0;
-    for (final e in _draft.entries) {
-      try {
-        await ref
-            .read(inventoryActionsProvider)
-            .setAccess(
-              inventoryId: inventoryId,
-              userId: e.key,
-              canPos: e.value.pos,
-              canView: e.value.view,
-              canEdit: e.value.edit,
-            );
-      } catch (_) {
-        failed++;
-      }
-    }
-    return failed;
-  }
+  Future<int> _applyDraftAccess(String inventoryId) =>
+      ref.read(inventoryActionsProvider).applyAccessGrants(inventoryId, _draft);
 
-  String? _nameError(List<LocalInventory> existing) {
-    final n = _name.text.trim();
-    if (n.isEmpty) return null;
-    if (n.length > 40) return 'Keep the name under 40 characters';
-    if (existing.any((i) => i.name.toLowerCase() == n.toLowerCase())) {
-      return 'A location with this name already exists';
-    }
-    return null;
-  }
+  String? _nameError(List<LocalInventory> existing) => validateLocationName(
+        _name.text.trim(),
+        existing.map((i) => i.name),
+      );
 
   Future<void> _save() async {
     final name = _name.text.trim();
