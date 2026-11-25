@@ -7,6 +7,9 @@ import '../providers/customer_provider.dart';
 import '../widgets/loading_overlay.dart';
 import '../utils/error_text.dart';
 
+/// What [CustomerFormScreen] did before closing; null if the user backed out.
+enum CustomerFormResult { saved, deleted }
+
 class CustomerFormScreen extends ConsumerStatefulWidget {
   final Customer? customer;
 
@@ -92,7 +95,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
             content: Text(_isEditing ? 'Customer updated' : 'Customer added'),
           ),
         );
-        Navigator.of(context).pop(true); // true = changed
+        Navigator.of(context).pop(CustomerFormResult.saved);
       }
     } catch (e) {
       _showError(errorText(e));
@@ -138,7 +141,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Customer deleted')));
-        Navigator.of(context).pop(true);
+        Navigator.of(context).pop(CustomerFormResult.deleted);
       }
     } catch (e) {
       _showError(errorText(e));

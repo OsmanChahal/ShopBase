@@ -130,6 +130,12 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             ref.invalidate(customerDetailProvider(widget.customerId));
             ref.invalidate(customerListProvider);
           },
+          onCustomerDeleted: () {
+            // The customer is gone: refresh the list and leave this screen
+            // instead of re-fetching a deleted record.
+            ref.invalidate(customerListProvider);
+            if (mounted) Navigator.of(context).pop();
+          },
         ),
       ),
     ),

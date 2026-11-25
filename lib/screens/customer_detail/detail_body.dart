@@ -11,6 +11,7 @@ class _CustomerDetailBody extends ConsumerWidget {
   final CustomerSalesFilterKey filterKey;
   final void Function(HistoryPeriod) onPeriodChanged;
   final VoidCallback onCustomerEdited;
+  final VoidCallback onCustomerDeleted;
 
   const _CustomerDetailBody({
     required this.customer,
@@ -21,6 +22,7 @@ class _CustomerDetailBody extends ConsumerWidget {
     required this.filterKey,
     required this.onPeriodChanged,
     required this.onCustomerEdited,
+    required this.onCustomerDeleted,
   });
 
   @override
@@ -110,14 +112,18 @@ class _CustomerDetailBody extends ConsumerWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          final changed =
-                              await Navigator.of(context).push<bool>(
+                          final result = await Navigator.of(context)
+                              .push<CustomerFormResult>(
                             MaterialPageRoute(
                               builder: (_) =>
                                   CustomerFormScreen(customer: customer),
                             ),
                           );
-                          if (changed == true) onCustomerEdited();
+                          if (result == CustomerFormResult.saved) {
+                            onCustomerEdited();
+                          } else if (result == CustomerFormResult.deleted) {
+                            onCustomerDeleted();
+                          }
                         },
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text('Edit Profile'),
