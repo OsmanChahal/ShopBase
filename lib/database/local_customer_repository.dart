@@ -48,31 +48,39 @@ class LocalCustomerRepository {
     required String name,
     String? phone,
   }) async {
-    await (_db.update(_db.localCustomers)..where((t) => t.id.equals(id))).write(
-      LocalCustomersCompanion(name: Value(name), phone: Value(phone)),
-    );
+    // Local write + sync_queue enqueue commit together, so a crash can't leave
+    // a change saved locally but never queued for sync.
+    return _db.transaction(() async {
+      await (_db.update(_db.localCustomers)..where((t) => t.id.equals(id))).write(
+        LocalCustomersCompanion(name: Value(name), phone: Value(phone)),
+      );
 
-    await _syncQueue.enqueue(
-      operationType: 'customer_upsert',
-      payloadJson: jsonEncode({
-        'id': id,
-        'business_id': businessId,
-        'name': name,
-        'phone': phone,
-      }),
-    );
+      await _syncQueue.enqueue(
+        operationType: 'customer_upsert',
+        payloadJson: jsonEncode({
+          'id': id,
+          'business_id': businessId,
+          'name': name,
+          'phone': phone,
+        }),
+      );
 
-    return (await getCustomerById(id))!;
+      return (await getCustomerById(id))!;
+    });
   }
 
   /// Delete a customer. Enqueues a customer_delete operation.
   Future<void> deleteCustomer(String id) async {
-    await (_db.delete(_db.localCustomers)..where((t) => t.id.equals(id))).go();
+    // Local write + sync_queue enqueue commit together, so a crash can't leave
+    // a change saved locally but never queued for sync.
+    return _db.transaction(() async {
+      await (_db.delete(_db.localCustomers)..where((t) => t.id.equals(id))).go();
 
-    await _syncQueue.enqueue(
-      operationType: 'customer_delete',
-      payloadJson: jsonEncode({'customer_id': id}),
-    );
+      await _syncQueue.enqueue(
+        operationType: 'customer_delete',
+        payloadJson: jsonEncode({'customer_id': id}),
+      );
+    });
   }
 
   /// Add a new customer locally. Generates a UUID, inserts into local DB,
@@ -82,32 +90,36 @@ class LocalCustomerRepository {
     required String name,
     String? phone,
   }) async {
-    final id = _uuid.v4();
-    final now = DateTime.now().toUtc();
+    // Local write + sync_queue enqueue commit together, so a crash can't leave
+    // a change saved locally but never queued for sync.
+    return _db.transaction(() async {
+      final id = _uuid.v4();
+      final now = DateTime.now().toUtc();
 
-    final companion = LocalCustomersCompanion.insert(
-      id: id,
-      businessId: businessId,
-      name: name,
-      phone: Value(phone),
-      createdAt: now,
-      lastSyncedAt: const Value(null),
-    );
+      final companion = LocalCustomersCompanion.insert(
+        id: id,
+        businessId: businessId,
+        name: name,
+        phone: Value(phone),
+        createdAt: now,
+        lastSyncedAt: const Value(null),
+      );
 
-    await _db.into(_db.localCustomers).insert(companion);
+      await _db.into(_db.localCustomers).insert(companion);
 
-    // Enqueue for sync
-    await _syncQueue.enqueue(
-      operationType: 'customer_upsert',
-      payloadJson: jsonEncode({
-        'id': id,
-        'business_id': businessId,
-        'name': name,
-        'phone': phone,
-      }),
-    );
+      // Enqueue for sync
+      await _syncQueue.enqueue(
+        operationType: 'customer_upsert',
+        payloadJson: jsonEncode({
+          'id': id,
+          'business_id': businessId,
+          'name': name,
+          'phone': phone,
+        }),
+      );
 
-    return (await getCustomerById(id))!;
+      return (await getCustomerById(id))!;
+    });
   }
 
   /// Batch insert customers from the initial pull (no sync queue entries needed).
