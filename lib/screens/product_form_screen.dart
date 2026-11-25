@@ -81,23 +81,23 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return null;
   }
 
-  String? _validatePositiveNumber(String? value) {
+  String? _validateNonNegativeNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'This field is required';
     }
-    final num = double.tryParse(value.trim());
-    if (num == null || num < 0) {
+    final parsed = double.tryParse(value.trim());
+    if (parsed == null || parsed < 0) {
       return 'Enter a valid non-negative number';
     }
     return null;
   }
 
-  String? _validatePositiveInteger(String? value) {
+  String? _validateNonNegativeInteger(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'This field is required';
     }
-    final num = int.tryParse(value.trim());
-    if (num == null || num < 0) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) {
       return 'Enter a valid non-negative whole number';
     }
     return null;
@@ -425,7 +425,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           labelText: 'Cost Price *',
                           prefixText: '\$ ',
                         ),
-                        validator: _validatePositiveNumber,
+                        validator: _validateNonNegativeNumber,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -443,7 +443,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           labelText: 'Sell Price *',
                           prefixText: '\$ ',
                         ),
-                        validator: _validatePositiveNumber,
+                        validator: _validateNonNegativeNumber,
                       ),
                     ),
                   ],
@@ -474,7 +474,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           labelText: 'Quantity *',
                           prefixIcon: Icon(Icons.inventory_outlined),
                         ),
-                        validator: _validatePositiveInteger,
+                        validator: _validateNonNegativeInteger,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -490,7 +490,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           labelText: 'Low Stock Threshold',
                           prefixIcon: Icon(Icons.warning_amber_outlined),
                         ),
-                        validator: _validatePositiveInteger,
+                        validator: _validateNonNegativeInteger,
                       ),
                     ),
                   ],

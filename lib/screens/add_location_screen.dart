@@ -21,7 +21,7 @@ class AddLocationScreen extends ConsumerStatefulWidget {
 
 class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
   final _name = TextEditingController();
-  bool _saving = false;
+  bool _isSaving = false;
   String? _serverError;
 
   @override
@@ -43,7 +43,7 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
   Future<void> _save() async {
     final name = _name.text.trim();
     setState(() {
-      _saving = true;
+      _isSaving = true;
       _serverError = null;
     });
     String id;
@@ -52,7 +52,7 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _saving = false;
+        _isSaving = false;
         _serverError = errorText(e);
       });
       return;
@@ -60,7 +60,7 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
     final failed = await _applyDraftAccess(id);
     final list = await ref.read(accessibleInventoriesProvider.future);
     if (!mounted) return;
-    setState(() => _saving = false);
+    setState(() => _isSaving = false);
     if (failed > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -150,7 +150,7 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
         isAdmin &&
         _name.text.trim().isNotEmpty &&
         nameError == null &&
-        !_saving;
+        !_isSaving;
 
     return Scaffold(
       backgroundColor: LocDesign.surface,
@@ -472,11 +472,11 @@ class _AddLocationScreenState extends ConsumerState<AddLocationScreen> {
                     LocPrimaryButton(
                       label: 'Save & Add Location',
                       icon: Icons.add_rounded,
-                      loading: _saving,
+                      loading: _isSaving,
                       onTap: canSave ? _save : null,
                     ),
                     TextButton(
-                      onPressed: _saving ? null : _discard,
+                      onPressed: _isSaving ? null : _discard,
                       child: const Text(
                         'Discard & Go Back',
                         style: TextStyle(

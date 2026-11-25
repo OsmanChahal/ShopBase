@@ -218,7 +218,7 @@ class _CustomerTagsSection extends ConsumerWidget {
                 // Add tag button (or max message)
                 if (atMax)
                   Chip(
-                    label: const Text('Max 4 tags'),
+                    label: const Text('Max $kMaxTagsPerCustomer tags'),
                     avatar: const Icon(Icons.info_outline,
                         size: 14, color: AppColors.textSecondary),
                     labelStyle: const TextStyle(

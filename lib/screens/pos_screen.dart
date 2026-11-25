@@ -313,7 +313,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1,
-                        color: Color(0xFF9333EA),
+                        color: _purple600,
                       ),
                     ),
                     SizedBox(height: 2),

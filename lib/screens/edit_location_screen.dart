@@ -20,7 +20,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
   final _name = TextEditingController();
   final _nameFocus = FocusNode();
   bool _nameInit = false;
-  bool _busy = false;
+  bool _isSaving = false;
   String? _serverError;
 
   @override
@@ -42,7 +42,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     setState(() {
-      _busy = true;
+      _isSaving = true;
       _serverError = null;
     });
     try {
@@ -54,7 +54,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _busy = false;
+        _isSaving = false;
         _serverError = errorText(e);
       });
     }
@@ -86,7 +86,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
-    setState(() => _busy = true);
+    setState(() => _isSaving = true);
     try {
       await ref
           .read(inventoryActionsProvider)
@@ -97,7 +97,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
       nav.pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _busy = false);
+      setState(() => _isSaving = false);
       messenger.showSnackBar(
         SnackBar(content: Text(errorText(e))),
       );
@@ -149,7 +149,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
       emptyMessage: 'Name is required',
     );
     final dirty = typed != s.inventory.name;
-    final canSave = isAdmin && dirty && nameError == null && !_busy;
+    final canSave = isAdmin && dirty && nameError == null && !_isSaving;
 
     // Archive rules (server enforces the same; primary is a UI-only rule)
     final archiveBlock = archiveBlockReason(
@@ -157,7 +157,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
       activeLocationCount: list.length,
       allocatedUnits: s.units,
     );
-    final canArchive = isAdmin && archiveBlock == null && !_busy;
+    final canArchive = isAdmin && archiveBlock == null && !_isSaving;
 
     final low = s.lowStock;
     final healthColor = low > 0
@@ -539,7 +539,7 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
                       if (s.units > 0)
                         _SmallButton(
                           'Transfer Stock First',
-                          onTap: _busy ? null : _transferOut,
+                          onTap: _isSaving ? null : _transferOut,
                           danger: true,
                         ),
                       const SizedBox(width: 8),
@@ -570,14 +570,14 @@ class _EditLocationScreenState extends ConsumerState<EditLocationScreen> {
                 label: 'Save Changes',
                 icon: Icons.check_rounded,
                 gradient: false,
-                loading: _busy,
+                loading: _isSaving,
                 onTap: canSave ? () => _save(s) : null,
               ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: (s.units > 0 && !_busy) ? _transferOut : null,
+                  onPressed: (s.units > 0 && !_isSaving) ? _transferOut : null,
                   icon: const Icon(
                     Icons.swap_horiz_rounded,
                     size: 16,

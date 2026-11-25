@@ -77,7 +77,7 @@ class _InlineCustomerTags extends ConsumerWidget {
               // Add tag / max reached
               if (atMax)
                 Chip(
-                  label: const Text('Max 4'),
+                  label: const Text('Max $kMaxTagsPerCustomer'),
                   labelStyle: TextStyle(
                     fontSize: 11,
                     color: theme.colorScheme.onSurface

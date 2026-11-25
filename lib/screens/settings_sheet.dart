@@ -227,7 +227,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     );
   }
 
-  Future<void> _confirmSignOut(BuildContext context) async {
+  Future<void> _confirmSignOut() async {
     final nav = Navigator.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -373,7 +373,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => _confirmSignOut(context),
+                          onPressed: _confirmSignOut,
                           icon: const Icon(Icons.logout),
                           label: const Text('Sign Out'),
                           style: OutlinedButton.styleFrom(
@@ -790,7 +790,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => _confirmSignOut(context),
+                          onPressed: _confirmSignOut,
                           icon: const Icon(Icons.logout),
                           label: const Text('Sign Out'),
                           style: OutlinedButton.styleFrom(
