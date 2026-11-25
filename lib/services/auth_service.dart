@@ -37,7 +37,25 @@ class AuthService {
   }
 
   /// Sign up a new user and create their business row.
-  /// Returns the created Business on success.
+  /// Creates a Supabase Auth user without creating a business.
+  ///
+  /// Errors are rethrown as plain [Exception]s with a user-readable message
+  /// (the auth error's message, or a connection hint).
+  Future<AuthResponse> createAuthUser({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      return await _client.auth.signUp(email: email, password: password);
+    } on AuthException catch (e) {
+      throw Exception(e.message);
+    } catch (e) {
+      throw Exception(
+        'Failed to create account. Please check your connection.',
+      );
+    }
+  }
+
   /// Sign up a new user and create their business row.
   /// Returns the created Business on success.
   Future<Business> signUp({
@@ -47,19 +65,10 @@ class AuthService {
     required String businessType,
   }) async {
     // 1. Create the auth user
-    AuthResponse authResponse;
-    try {
-      authResponse = await _client.auth.signUp(
-        email: email,
-        password: password,
-      );
-    } on AuthException catch (e) {
-      throw Exception(e.message);
-    } catch (e) {
-      throw Exception(
-        'Failed to create account. Please check your connection.',
-      );
-    }
+    final authResponse = await createAuthUser(
+      email: email,
+      password: password,
+    );
 
     final userId = authResponse.user?.id;
     if (userId == null) {

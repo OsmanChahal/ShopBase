@@ -27,26 +27,37 @@ class StaffAccountActions {
   /// Signs up [email]/[password] with Supabase Auth, then activates the
   /// invitation (creates the business_members row) and refreshes auth state.
   ///
-  /// Throws if sign-up itself fails. If sign-up succeeds but activation
-  /// fails, returns [StaffActivationResult.setupFailed] instead of throwing.
+  /// The automatic business load is paused until activation finishes, so the
+  /// app doesn't flash "No Business Found" in between.
+  ///
+  /// Throws (with a readable message) if sign-up itself fails. If sign-up
+  /// succeeds but activation fails, returns
+  /// [StaffActivationResult.setupFailed] instead of throwing.
   Future<StaffActivationResult> createAndActivate({
     required String invitationId,
     required String email,
     required String password,
   }) async {
-    await _ref
-        .read(supabaseClientProvider)
-        .auth
-        .signUp(email: email, password: password);
+    final result = await _ref
+        .read(authProvider.notifier)
+        .runWithoutAutoLoad(() async {
+      await _ref
+          .read(authServiceProvider)
+          .createAuthUser(email: email, password: password);
+      try {
+        await _ref
+            .read(staffServiceProvider)
+            .activateStaffAccount(invitationId);
+        return StaffActivationResult.activated;
+      } catch (_) {
+        return StaffActivationResult.setupFailed;
+      }
+    });
 
-    try {
-      await _ref.read(staffServiceProvider).activateStaffAccount(invitationId);
-      // Refetch the new session so loading the business succeeds.
-      _ref.invalidate(authProvider);
-      return StaffActivationResult.activated;
-    } catch (_) {
-      return StaffActivationResult.setupFailed;
-    }
+    // Reload auth state from the new session: the business on success, or
+    // "No Business Found" if activation failed (as before).
+    _ref.invalidate(authProvider);
+    return result;
   }
 }
 

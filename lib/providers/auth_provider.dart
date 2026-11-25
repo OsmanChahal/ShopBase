@@ -171,6 +171,21 @@ class AuthNotifier extends StateNotifier<AuthBusinessState> {
     }
   }
 
+  /// Runs [body] while ignoring the automatic business load on `signedIn`.
+  ///
+  /// For sign-ups that need more server setup before the account has a
+  /// business (e.g. staff activation); otherwise the listener would load
+  /// mid-way and briefly route to "No Business Found". The caller should
+  /// refresh auth state afterwards.
+  Future<T> runWithoutAutoLoad<T>(Future<T> Function() body) async {
+    _isSigningUp = true;
+    try {
+      return await body();
+    } finally {
+      _isSigningUp = false;
+    }
+  }
+
   /// Sign out.
   Future<void> signOut() async {
     try {
