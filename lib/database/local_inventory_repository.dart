@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'app_database.dart';
 import 'sync_queue_repository.dart';
+import '../utils/location_rules.dart';
 
 const _uuid = Uuid();
 
@@ -36,6 +37,15 @@ class LocalInventoryRepository {
         .get();
   }
 
+  /// Required and at most [kLocationNameMaxLength] characters. The forms
+  /// check this too; enforcing it here covers every caller.
+  void _checkNameLength(String clean) {
+    if (clean.isEmpty) throw Exception('Inventory name is required');
+    if (clean.length > kLocationNameMaxLength) {
+      throw Exception('Keep the name under $kLocationNameMaxLength characters');
+    }
+  }
+
   Future<void> _ensureNameFree(
     String businessId,
     String name, {
@@ -58,7 +68,7 @@ class LocalInventoryRepository {
     required String name,
   }) async {
     final clean = name.trim();
-    if (clean.isEmpty) throw Exception('Inventory name is required');
+    _checkNameLength(clean);
     await _ensureNameFree(businessId, clean);
 
     final id = _uuid.v4();
@@ -90,7 +100,7 @@ class LocalInventoryRepository {
 
   Future<void> renameInventory(String id, String newName) async {
     final clean = newName.trim();
-    if (clean.isEmpty) throw Exception('Inventory name is required');
+    _checkNameLength(clean);
     final inv = await (_db.select(
       _db.localInventories,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
