@@ -195,10 +195,9 @@ class _StockAdjustDialogState extends ConsumerState<StockAdjustDialog> {
                     ),
                   ),
                   onChanged: (value) {
-                    final parsed = int.tryParse(value);
-                    if (parsed != null) {
-                      setState(() => _delta = parsed);
-                    }
+                    // Empty or partial input (e.g. "-") means no change, so
+                    // Confirm never applies a number the user has cleared.
+                    setState(() => _delta = int.tryParse(value) ?? 0);
                   },
                 ),
               ),
