@@ -463,16 +463,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 Row(
                   children: [
                     Expanded(
+                      // When editing, stock only changes through "Adjust
+                      // stock" (a synced delta), so this field is read-only.
                       child: TextFormField(
                         controller: _quantityController,
+                        readOnly: _isEditing,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Quantity *',
-                          prefixIcon: Icon(Icons.inventory_outlined),
+                          prefixIcon: const Icon(Icons.inventory_outlined),
+                          helperText: _isEditing
+                              ? 'Use Adjust stock (top bar) to change'
+                              : null,
                         ),
                         validator: _validateNonNegativeInteger,
                       ),
