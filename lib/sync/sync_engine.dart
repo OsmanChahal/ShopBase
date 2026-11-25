@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
 import '../database/sync_queue_repository.dart';
+import 'remote_merge.dart';
 import 'supabase_paging.dart';
 
 class SyncEngine {
@@ -15,6 +16,26 @@ class SyncEngine {
 
   bool _needsStockReconcile = true;
   final List<String> _rejections = [];
+
+  /// How often to run the full ID comparisons below (they fetch every id, so
+  /// they're throttled rather than run on every 45 s sync).
+  static const _reconcileInterval = Duration(minutes: 5);
+
+  /// Recent-sales window re-checked on every sync. Sales carry the selling
+  /// device's clock in created_at, so a margin covers small clock differences.
+  static const _recentSalesOverlap = Duration(minutes: 10);
+
+  /// Products/customers: full check for server-side deletes and edits.
+  /// Starts true so the first sync after launch runs it; set again when the
+  /// server refuses a product/customer change (see [_compensate]).
+  bool _forceEntityReconcile = true;
+  DateTime? _lastEntityReconcileAt;
+
+  /// Sales: full id comparison, to catch sales another device made offline
+  /// and uploaded later (their created_at is older than our last pull).
+  DateTime? _lastSalesReconcileAt;
+
+  late final RemoteMerge _merge = RemoteMerge(_db);
 
   List<String> takeRejections() {
     final out = List<String>.from(_rejections);
@@ -180,8 +201,27 @@ class SyncEngine {
         final id = (payload?['id'] ?? payload?['inventory_id']) as String?;
         if (id != null) await _restoreInventoryFromServer(id);
         break;
+      case 'product_upsert':
+      case 'product_catalog_update':
+        // A refused edit is newer than the server row, so the normal pull
+        // would keep it: put this product back to the server's version.
+        final id = payload?['id'] as String?;
+        if (id != null) await _merge.restoreProduct(id, await _fetchProduct(id));
+        _forceEntityReconcile = true;
+        break;
+      case 'product_delete':
+      case 'customer_upsert':
+      case 'customer_delete':
+        // The server kept its version (e.g. refused deleting a customer who
+        // has sales). The next pull re-syncs products/customers with the
+        // server: refused deletes are restored, refused creates removed.
+        _forceEntityReconcile = true;
+        break;
     }
   }
+
+  Future<Map<String, dynamic>?> _fetchProduct(String id) =>
+      _supabase.from('products').select().eq('id', id).maybeSingle();
 
   Future<void> _restoreInventoryFromServer(String id) async {
     try {
@@ -370,7 +410,8 @@ class SyncEngine {
     dev.log('[SyncEngine Pull] Pulling updates since: $lastPullAt');
 
     await _pullInventories(businessId, overlapSince);
-    await _pullProducts(businessId, lastPullAt);
+    await _pullProducts(businessId, overlapSince);
+    await _reconcileEntitiesIfDue(businessId, now);
     final reconcile =
         _needsStockReconcile && (await _queueRepo.getProcessableCount()) == 0;
     await _pullInventoryStock(businessId, overlapSince, reconcile: reconcile);
@@ -379,9 +420,130 @@ class SyncEngine {
       await _pullInventoryAccess();
     }
     await _pullTransfers(businessId, overlapSince);
-    await _pullCustomers(businessId, lastPullAt);
+    await _pullCustomers(businessId, overlapSince);
+    await _pullRecentSales(businessId, lastPullAt);
+    await _reconcileSalesIfDue(businessId, now);
 
     await _updateLastPullAt(businessId, now);
+  }
+
+  bool _isDue(DateTime? last, DateTime now) =>
+      last == null || now.difference(last) >= _reconcileInterval;
+
+  // ── Sales from other devices ───────────────────────────────────────────────
+
+  /// Fast path, every sync: sales created recently on any device.
+  Future<void> _pullRecentSales(String businessId, DateTime? lastPullAt) async {
+    if (lastPullAt == null) return; // first sync: the full check below runs
+    final since = lastPullAt.subtract(_recentSalesOverlap).toIso8601String();
+    final sales = await fetchAllPages(
+      () => _supabase
+          .from('sales')
+          .select()
+          .eq('business_id', businessId)
+          .gte('created_at', since),
+      ['id'],
+    );
+    await _downloadSales(businessId, sales);
+  }
+
+  /// Every [_reconcileInterval]: compare all sale ids with the server and
+  /// download any this device is missing (e.g. a sale made offline elsewhere).
+  Future<void> _reconcileSalesIfDue(String businessId, DateTime now) async {
+    if (!_isDue(_lastSalesReconcileAt, now)) return;
+    final serverIds = (await fetchAllPages(
+      () => _supabase.from('sales').select('id').eq('business_id', businessId),
+      ['id'],
+    ))
+        .map((r) => r['id'] as String)
+        .toSet();
+    final missing =
+        serverIds.difference(await _merge.localSaleIds(businessId)).toList();
+    for (var i = 0; i < missing.length; i += 50) {
+      final batch = missing.sublist(i, (i + 50).clamp(0, missing.length));
+      final sales = await fetchAllPages(
+        () => _supabase.from('sales').select().inFilter('id', batch),
+        ['id'],
+      );
+      await _downloadSales(businessId, sales);
+    }
+    _lastSalesReconcileAt = now;
+  }
+
+  /// Stores [sales] (and their items) that aren't on this device yet.
+  Future<void> _downloadSales(
+    String businessId,
+    List<Map<String, dynamic>> sales,
+  ) async {
+    if (sales.isEmpty) return;
+    final local = await _merge.localSaleIds(businessId);
+    final newIds = sales
+        .map((s) => s['id'] as String)
+        .where((id) => !local.contains(id))
+        .toList();
+    if (newIds.isEmpty) return;
+    final items = <Map<String, dynamic>>[];
+    for (var i = 0; i < newIds.length; i += 50) {
+      final batch = newIds.sublist(i, (i + 50).clamp(0, newIds.length));
+      items.addAll(await fetchAllPages(
+        () => _supabase.from('sale_items').select().inFilter('sale_id', batch),
+        ['id'],
+      ));
+    }
+    final added = await _merge.insertMissingSales(businessId, sales, items);
+    dev.log('[SyncEngine Pull] Downloaded $added sale(s) from other devices.');
+  }
+
+  // ── Products & customers: deletes, edits, refused changes ────────────────
+
+  /// Every [_reconcileInterval] (or right after the server refused a
+  /// product/customer change), but only when nothing is waiting to be pushed,
+  /// so unsent local edits are never overwritten.
+  Future<void> _reconcileEntitiesIfDue(String businessId, DateTime now) async {
+    if (!_forceEntityReconcile && !_isDue(_lastEntityReconcileAt, now)) return;
+    if ((await _queueRepo.getProcessableCount()) > 0) return;
+
+    // Products: drop ones deleted on the server, restore ones missing here.
+    final serverProductIds = (await fetchAllPages(
+      () =>
+          _supabase.from('products').select('id').eq('business_id', businessId),
+      ['id'],
+    ))
+        .map((r) => r['id'] as String)
+        .toSet();
+    final removed =
+        await _merge.removeProductsNotOnServer(businessId, serverProductIds);
+    final missing = serverProductIds
+        .difference(await _merge.localProductIds(businessId))
+        .toList();
+    for (var i = 0; i < missing.length; i += 50) {
+      final batch = missing.sublist(i, (i + 50).clamp(0, missing.length));
+      final rows = await fetchAllPages(
+        () => _supabase.from('products').select().inFilter('id', batch),
+        ['id'],
+      );
+      await _merge.insertMissingProducts(rows, syncedAt: now);
+    }
+    // Restored products need their per-location stock rows back.
+    if (missing.isNotEmpty) _needsStockReconcile = true;
+
+    // Customers: small table, so mirror it fully (picks up edits too; local
+    // customers have no updated_at to compare).
+    final serverCustomers = await fetchAllPages(
+      () => _supabase
+          .from('customers')
+          .select()
+          .eq('business_id', businessId),
+      ['id'],
+    );
+    await _merge.mirrorCustomers(businessId, serverCustomers, syncedAt: now);
+
+    dev.log(
+      '[SyncEngine Pull] Reconciled: removed $removed product(s), restored '
+      '${missing.length}, mirrored ${serverCustomers.length} customer(s).',
+    );
+    _lastEntityReconcileAt = now;
+    _forceEntityReconcile = false;
   }
   // Future<void> _pull(String businessId) async {
   //   final lastPullAt = await _getLastPullAt(businessId);
