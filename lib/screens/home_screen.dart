@@ -12,10 +12,6 @@ import 'pos_screen.dart';
 import 'product_list_screen.dart';
 import 'settings_sheet.dart';
 
-/// Notifier that increments each time the Customers tab is tapped.
-/// [CustomerListScreen] listens to this and resets to Overview on change.
-final customerTabTapNotifier = ValueNotifier<int>(0);
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -87,7 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _onTabTapped(int index, List<Widget> screens) {
+  void _onTabTapped(int index) {
     setState(() => _currentIndex = index);
   }
 
@@ -248,7 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       bottomNavigationBar: availableItems.length > 1
           ? BottomNavigationBar(
               currentIndex: activeIndex,
-              onTap: (idx) => _onTabTapped(idx, availableScreens),
+              onTap: _onTabTapped,
               items: availableItems,
             )
           : null,

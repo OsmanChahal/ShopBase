@@ -18,7 +18,6 @@ import '../widgets/offline_scope_boundary.dart';
 import '../widgets/stat_badge.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
-import 'home_screen.dart'; // for customerTabTapNotifier
 
 /// Family provider to fetch monthly order count for a customer list row.
 final _customerMonthlyOrderCountProvider =
@@ -40,33 +39,16 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
   int _selectedSection = 0;
   late final TextEditingController _searchController;
 
-  /// Tracks the last seen value of [customerTabTapNotifier] so we can
-  /// detect re-selection of the Customers tab and reset to Overview.
-  int _lastTabTap = 0;
-
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController(
       text: ref.read(customerSearchQueryProvider),
     );
-    _lastTabTap = customerTabTapNotifier.value;
-    customerTabTapNotifier.addListener(_onCustomerTabTapped);
-  }
-
-  void _onCustomerTabTapped() {
-    final current = customerTabTapNotifier.value;
-    if (current != _lastTabTap) {
-      _lastTabTap = current;
-      if (mounted && _selectedSection != 0) {
-        setState(() => _selectedSection = 0);
-      }
-    }
   }
 
   @override
   void dispose() {
-    customerTabTapNotifier.removeListener(_onCustomerTabTapped);
     _searchController.dispose();
     super.dispose();
   }
@@ -439,9 +421,6 @@ bool _shouldUseWeekly(DateTimeRange range) {
 
 /// Formats a date for axis labels.
 String _axisDateLabel(DateTime dt, bool isWeekly) {
-  if (isWeekly) {
-    return '${dt.day}/${dt.month}';
-  }
   return '${dt.day}/${dt.month}';
 }
 
@@ -1040,7 +1019,7 @@ double _calcInterval(double maxValue) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// CUSTOMER LIST SECTION (extracted unchanged from original)
+// CUSTOMER LIST SECTION
 // ═══════════════════════════════════════════════════════════════════
 
 class _CustomerListSection extends ConsumerWidget {

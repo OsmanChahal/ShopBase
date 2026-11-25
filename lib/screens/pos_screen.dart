@@ -239,12 +239,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 const ConnectivityBanner(),
                 _header(isSyncing, posList ?? const [], currentId, currentName),
                 if (!canSell || noPosAtAll)
-                  _noAccessBanner(
-                    posList ?? const [],
-                    currentId,
-                    currentName,
-                    noPosAtAll,
-                  ),
+                  _noAccessBanner(posList, currentId, currentName, noPosAtAll),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: _searchField(),

@@ -5,7 +5,6 @@ import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/inventory_provider.dart';
 import '../theme/app_colors.dart';
-import 'transfer_stock_sheet.dart';
 
 const _accent = Color(0xFF833AB4); // design: brand.accent
 const _emerald = Color(0xFF10B981);

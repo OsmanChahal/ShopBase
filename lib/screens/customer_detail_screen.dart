@@ -345,10 +345,7 @@ class _CustomerDetailBody extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // ── Customer Tags ────────────────────────────────────────
-          _CustomerTagsSection(
-            customerId: customerId,
-            ref: ref,
-          ),
+          _CustomerTagsSection(customerId: customerId),
 
           const SizedBox(height: 16),
 
@@ -842,12 +839,8 @@ class _HistoryPeriodFilter extends StatelessWidget {
 
 class _CustomerTagsSection extends ConsumerWidget {
   final String customerId;
-  final WidgetRef ref;
 
-  const _CustomerTagsSection({
-    required this.customerId,
-    required this.ref,
-  });
+  const _CustomerTagsSection({required this.customerId});
 
   void _showTagPicker(BuildContext context, List<Tag> currentTags) {
     showModalBottomSheet(

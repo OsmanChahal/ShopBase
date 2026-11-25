@@ -72,10 +72,6 @@ class _StaffWaitingScreenState extends ConsumerState<StaffWaitingScreen> {
           ),
         ),
       );
-    } else if (status == 'declined') {
-      setState(() {
-        _status = 'declined';
-      });
     } else {
       setState(() {
         _status = status;

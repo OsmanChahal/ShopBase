@@ -35,17 +35,14 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen>
         _requestsChannel = ref
             .read(staffServiceProvider)
             .subscribeToStaffRequests(business.id, () {
-              print(
-                '[Realtime] Admin received new_request signal, refreshing lists',
-              );
               if (mounted) {
                 ref.invalidate(staffInvitationsProvider);
                 ref.invalidate(staffMembersProvider);
               }
             });
       }
-    } catch (e) {
-      print('[Realtime] Error subscribing to staff requests: $e');
+    } catch (_) {
+      // Subscription failure is non-fatal; the lists still load normally.
     }
   }
 

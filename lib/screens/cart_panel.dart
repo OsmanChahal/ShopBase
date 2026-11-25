@@ -422,7 +422,7 @@ class _CartPanelState extends ConsumerState<CartPanel> {
 
                         // Connect with Customer section (Always visible, optional)
                         const SizedBox(height: 12),
-                        _CustomerPickerSection(ref: ref, theme: theme),
+                        _CustomerPickerSection(theme: theme),
 
                         const SizedBox(height: 16),
 
@@ -730,10 +730,9 @@ class _TotalRow extends StatelessWidget {
 
 /// Connect with Customer section for POS sales — extended with inline tag management.
 class _CustomerPickerSection extends ConsumerWidget {
-  final WidgetRef ref;
   final ThemeData theme;
 
-  const _CustomerPickerSection({required this.ref, required this.theme});
+  const _CustomerPickerSection({required this.theme});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -838,7 +837,6 @@ class _CustomerPickerSection extends ConsumerWidget {
       ),
       builder: (ctx) {
         return _CustomerSearchSheet(
-          ref: ref,
           onSelect: (customer) {
             ref.read(selectedCustomerIdProvider.notifier).state = customer.id;
             ref.read(selectedCustomerNameProvider.notifier).state =
@@ -853,11 +851,9 @@ class _CustomerPickerSection extends ConsumerWidget {
 
 /// Bottom sheet for searching and selecting a customer, with an inline "Add New Customer" button.
 class _CustomerSearchSheet extends ConsumerStatefulWidget {
-  final WidgetRef ref;
   final void Function(Customer) onSelect;
 
   const _CustomerSearchSheet({
-    required this.ref,
     required this.onSelect,
   });
 
@@ -871,10 +867,6 @@ class _CustomerSearchSheetState
   String _query = '';
 
   /// Lightweight inline customer creation for POS — writes to local DB + enqueues.
-  void _addNewCustomer(BuildContext context) {
-    _showInlineCustomerDialog(context);
-  }
-
   void _showInlineCustomerDialog(BuildContext context) {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
@@ -987,7 +979,7 @@ class _CustomerSearchSheetState
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: () => _addNewCustomer(context),
+                    onPressed: () => _showInlineCustomerDialog(context),
                     icon: const Icon(Icons.person_add_alt_1, size: 18),
                     label: const Text('Add New'),
                   ),
@@ -1033,7 +1025,7 @@ class _CustomerSearchSheetState
                             ),
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
-                              onPressed: () => _addNewCustomer(context),
+                              onPressed: () => _showInlineCustomerDialog(context),
                               icon: const Icon(Icons.person_add, size: 18),
                               label: const Text('Create New Customer'),
                             ),

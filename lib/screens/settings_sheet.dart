@@ -258,7 +258,6 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     }
   }
 
-  // NEW
   Future<void> _showUnsyncedDialog(
     SignOutOutcome outcome,
     NavigatorState nav,

@@ -1,7 +1,6 @@
-import 'package:crm_pos/providers/session_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
+import '../providers/session_provider.dart';
 
 class NoBusinessScreen extends ConsumerWidget {
   const NoBusinessScreen({super.key});
