@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required in release builds: Supabase auth/sync and WhatsApp links.
+         (The debug/profile manifests declare it only for Flutter tooling.) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="ShopBase"
         android:name="${applicationName}"
