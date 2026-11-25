@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/database_provider.dart';
+import '../database/initial_pull_service.dart';
 import '../sync/sync_provider.dart';
 import 'auth_provider.dart';
 import 'cart_provider.dart';
+import 'customer_provider.dart';
 import 'inventory_provider.dart';
 import 'product_provider.dart';
+import 'sale_provider.dart';
 
 class SignOutOutcome {
   final bool signedOut;
@@ -22,6 +25,28 @@ class SignOutOutcome {
 class SessionActions {
   final Ref ref;
   SessionActions(this.ref);
+
+  /// One-time download of an existing business's data into an empty local
+  /// database (first login on this device). Refreshes the product, customer
+  /// and sales lists when data was pulled. Returns whether a pull happened.
+  Future<bool> pullInitialDataIfNeeded(String businessId) async {
+    final pullService = InitialPullService(
+      supabase: ref.read(supabaseClientProvider),
+      productRepo: ref.read(localProductRepositoryProvider),
+      customerRepo: ref.read(localCustomerRepositoryProvider),
+      saleRepo: ref.read(localSaleRepositoryProvider),
+    );
+
+    final didPull = await pullService.pullIfNeeded(businessId);
+
+    if (didPull) {
+      // Refresh providers so UI picks up the pulled data
+      ref.invalidate(productListProvider);
+      ref.invalidate(customerListProvider);
+      ref.invalidate(salesListProvider);
+    }
+    return didPull;
+  }
 
   Future<SignOutOutcome> signOut({bool discardUnsynced = false}) async {
     final queueRepo = ref.read(syncQueueRepositoryProvider);

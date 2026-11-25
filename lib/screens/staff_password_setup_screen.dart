@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
 import '../providers/staff_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/validators.dart';
@@ -41,26 +40,20 @@ class _StaffPasswordSetupScreenState extends ConsumerState<StaffPasswordSetupScr
     setState(() => _isLoading = true);
 
     try {
-      final supabase = ref.read(supabaseClientProvider);
-      
-      // 1. Sign up with Supabase Auth directly
-      await supabase.auth.signUp(
-        email: widget.email,
-        password: _passwordController.text,
-      );
+      final result = await ref
+          .read(staffAccountActionsProvider)
+          .createAndActivate(
+            invitationId: widget.invitationId,
+            email: widget.email,
+            password: _passwordController.text,
+          );
 
-      // 2. Activate the staff account (creates business_members row)
-      try {
-        await ref.read(staffServiceProvider).activateStaffAccount(widget.invitationId);
-        
-        // Invalidate authProvider so it fetches the new session and loadBusiness passes
-        ref.invalidate(authProvider);
-
-        // 3. Navigate into main app like normal login
+      if (result == StaffActivationResult.activated) {
+        // Navigate into main app like normal login
         if (mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
-      } catch (e) {
+      } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

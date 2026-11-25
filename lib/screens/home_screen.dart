@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../database/initial_pull_service.dart';
 import '../providers/auth_provider.dart';
-import '../providers/customer_provider.dart';
-import '../providers/product_provider.dart';
-import '../providers/sale_provider.dart';
+import '../providers/session_provider.dart';
 import '../sync/sync_provider.dart';
 import 'customer_list_screen.dart';
 import 'dashboard_screen.dart';
@@ -41,21 +38,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     try {
-      final pullService = InitialPullService(
-        supabase: ref.read(supabaseClientProvider),
-        productRepo: ref.read(localProductRepositoryProvider),
-        customerRepo: ref.read(localCustomerRepositoryProvider),
-        saleRepo: ref.read(localSaleRepositoryProvider),
-      );
-
-      final didPull = await pullService.pullIfNeeded(business.id);
-
-      if (didPull) {
-        // Refresh providers so UI picks up the pulled data
-        ref.invalidate(productListProvider);
-        ref.invalidate(customerListProvider);
-        ref.invalidate(salesListProvider);
-      }
+      await ref
+          .read(sessionActionsProvider)
+          .pullInitialDataIfNeeded(business.id);
 
       if (mounted) {
         setState(() {

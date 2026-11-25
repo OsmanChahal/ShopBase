@@ -268,8 +268,25 @@ class StaffService {
     }
   }
 
-  /// Sends a status update broadcast — called by the admin's accept/decline
-  /// handlers, right after the authenticated database update succeeds.
+  /// Admin accepts or declines a pending staff request: updates the
+  /// invitation's [status] ('accepted' or 'declined'), then notifies the
+  /// waiting staff device over realtime.
+  ///
+  /// Errors from the update are deliberately not wrapped, so callers can show
+  /// the underlying message.
+  Future<void> respondToInvitation({
+    required String invitationId,
+    required String status,
+  }) async {
+    await _client
+        .from('staff_invitations')
+        .update({'status': status})
+        .eq('id', invitationId);
+    await broadcastStatusUpdate(invitationId: invitationId, status: status);
+  }
+
+  /// Sends a status update broadcast — called by [respondToInvitation],
+  /// right after the authenticated database update succeeds.
   Future<void> broadcastStatusUpdate({
     required String invitationId,
     required String status,

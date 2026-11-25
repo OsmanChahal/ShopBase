@@ -381,16 +381,8 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen>
   Future<void> _handleAccept(BuildContext context, String invitationId) async {
     try {
       await ref
-          .read(supabaseClientProvider)
-          .from('staff_invitations')
-          .update({'status': 'accepted'})
-          .eq('id', invitationId);
-      await ref
           .read(staffServiceProvider)
-          .broadcastStatusUpdate(
-            invitationId: invitationId,
-            status: 'accepted',
-          );
+          .respondToInvitation(invitationId: invitationId, status: 'accepted');
       ref.invalidate(staffInvitationsProvider);
       ref.invalidate(staffMembersProvider);
     } catch (e) {
@@ -432,16 +424,8 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen>
 
     try {
       await ref
-          .read(supabaseClientProvider)
-          .from('staff_invitations')
-          .update({'status': 'declined'})
-          .eq('id', invitationId);
-      await ref
           .read(staffServiceProvider)
-          .broadcastStatusUpdate(
-            invitationId: invitationId,
-            status: 'declined',
-          );
+          .respondToInvitation(invitationId: invitationId, status: 'declined');
       ref.invalidate(staffInvitationsProvider);
       ref.invalidate(staffMembersProvider);
     } catch (e) {
