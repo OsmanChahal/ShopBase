@@ -4,6 +4,7 @@ import 'app_database.dart';
 import 'local_customer_repository.dart';
 import 'local_product_repository.dart';
 import 'local_sale_repository.dart';
+import '../sync/supabase_paging.dart';
 
 /// One-time initial pull from Supabase into the local SQLite database.
 ///
@@ -41,14 +42,13 @@ class InitialPullService {
     final now = DateTime.now().toUtc();
 
     // 1. Pull products
-    final productsResponse = await _supabase
-        .from('products')
-        .select()
-        .eq('business_id', businessId)
-        .order('name', ascending: true);
+    final productsResponse = await fetchAllPages(
+      () => _supabase.from('products').select().eq('business_id', businessId),
+      ['id'],
+    );
 
-    final productCompanions = (productsResponse as List).map((json) {
-      final j = json as Map<String, dynamic>;
+    final productCompanions = productsResponse.map((json) {
+      final j = json;
       return LocalProductsCompanion.insert(
         id: j['id'] as String,
         businessId: j['business_id'] as String,
@@ -73,14 +73,13 @@ class InitialPullService {
     }
 
     // 2. Pull customers
-    final customersResponse = await _supabase
-        .from('customers')
-        .select()
-        .eq('business_id', businessId)
-        .order('name', ascending: true);
+    final customersResponse = await fetchAllPages(
+      () => _supabase.from('customers').select().eq('business_id', businessId),
+      ['id'],
+    );
 
-    final customerCompanions = (customersResponse as List).map((json) {
-      final j = json as Map<String, dynamic>;
+    final customerCompanions = customersResponse.map((json) {
+      final j = json;
       return LocalCustomersCompanion.insert(
         id: j['id'] as String,
         businessId: j['business_id'] as String,
@@ -96,16 +95,13 @@ class InitialPullService {
     }
 
     // 3. Pull sales
-    final salesResponse = await _supabase
-        .from('sales')
-        .select()
-        .eq('business_id', businessId)
-        .order('created_at', ascending: false);
-
-    final salesList = salesResponse as List;
+    final salesList = await fetchAllPages(
+      () => _supabase.from('sales').select().eq('business_id', businessId),
+      ['id'],
+    );
     if (salesList.isNotEmpty) {
       final saleCompanions = salesList.map((json) {
-        final j = json as Map<String, dynamic>;
+        final j = json;
         return LocalSalesCompanion.insert(
           id: j['id'] as String,
           businessId: j['business_id'] as String,
@@ -132,13 +128,16 @@ class InitialPullService {
           i,
           i + 50 > saleIds.length ? saleIds.length : i + 50,
         );
-        final itemsResponse = await _supabase
-            .from('sale_items')
-            .select()
-            .inFilter('sale_id', batchIds);
+        final itemsResponse = await fetchAllPages(
+          () => _supabase.from('sale_items').select().inFilter(
+            'sale_id',
+            batchIds,
+          ),
+          ['id'],
+        );
 
-        for (final json in (itemsResponse as List)) {
-          final j = json as Map<String, dynamic>;
+        for (final json in itemsResponse) {
+          final j = json;
           allItemCompanions.add(
             LocalSaleItemsCompanion.insert(
               id: j['id'] as String,

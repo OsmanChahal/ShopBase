@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
 import '../database/sync_queue_repository.dart';
+import 'supabase_paging.dart';
 
 class SyncEngine {
   final SyncQueueRepository _queueRepo;
@@ -553,29 +554,8 @@ class SyncEngine {
 
   // ── NEW: multi-inventory pulls ─────────────────────────────────────────────
 
-  /// Supabase returns at most 1000 rows per request, so page through them.
-  Future<List<Map<String, dynamic>>> _fetchAllPages(
-    dynamic Function() buildFiltered,
-    List<String> orderBy,
-  ) async {
-    const pageSize = 1000;
-    final out = <Map<String, dynamic>>[];
-    var from = 0;
-    while (true) {
-      dynamic q = buildFiltered();
-      for (final col in orderBy) {
-        q = q.order(col);
-      }
-      final List<dynamic> page = await q.range(from, from + pageSize - 1);
-      out.addAll(page.cast<Map<String, dynamic>>());
-      if (page.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
-  }
-
   Future<void> _pullInventories(String businessId, DateTime? since) async {
-    final rows = await _fetchAllPages(() {
+    final rows = await fetchAllPages(() {
       dynamic q = _supabase
           .from('inventories')
           .select()
@@ -627,7 +607,7 @@ class SyncEngine {
             .toList();
     if (inventoryIds.isEmpty) return;
 
-    final rows = await _fetchAllPages(() {
+    final rows = await fetchAllPages(() {
       dynamic q = _supabase
           .from('inventory_stock')
           .select()
@@ -733,7 +713,7 @@ class SyncEngine {
   /// It's a tiny table: replace the local copy with what the server shows
   /// this user (own rows for staff, every row for owner/admin).
   Future<void> _pullInventoryAccess() async {
-    final rows = await _fetchAllPages(
+    final rows = await fetchAllPages(
       () => _supabase.from('inventory_access').select(),
       ['inventory_id', 'user_id'],
     );
@@ -758,7 +738,7 @@ class SyncEngine {
     });
   }
   // Future<bool> _pullInventoryAccess() async {
-  //   final rows = await _fetchAllPages(
+  //   final rows = await fetchAllPages(
   //     () => _supabase.from('inventory_access').select(),
   //     ['inventory_id', 'user_id'],
   //   );
@@ -805,7 +785,7 @@ class SyncEngine {
   // }
 
   Future<void> _pullTransfers(String businessId, DateTime? since) async {
-    final rows = await _fetchAllPages(() {
+    final rows = await fetchAllPages(() {
       dynamic q = _supabase
           .from('stock_transfers')
           .select()
