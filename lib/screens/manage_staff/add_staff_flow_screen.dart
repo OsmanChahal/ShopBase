@@ -59,6 +59,7 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
           .read(staffServiceProvider)
           .checkDuplicateInvitation(business.id, email);
 
+      if (!mounted) return;
       if (isDuplicate) {
         setState(() {
           _emailError =
@@ -68,6 +69,7 @@ class _AddStaffFlowScreenState extends ConsumerState<_AddStaffFlowScreen> {
         setState(() => _currentStep = 1);
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _emailError = errorText(e);
       });

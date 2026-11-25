@@ -41,7 +41,10 @@ class _StaffWaitingScreenState extends ConsumerState<StaffWaitingScreen> {
     try {
       final staffService = ref.read(staffServiceProvider);
       final result = await staffService.checkInvitationStatus(widget.invitationId);
-      
+      // The screen may have closed while waiting; don't navigate, setState or
+      // open a realtime channel that dispose() can no longer clean up.
+      if (!mounted) return;
+
       _handleStatus(result.status);
 
       if (result.status == 'awaiting_approval') {
