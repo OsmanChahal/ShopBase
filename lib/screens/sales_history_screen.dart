@@ -276,7 +276,7 @@ class _SaleHistoryTile extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: sale.paymentType == 'cash'
                             ? const Color(0xFF16A34A)
-                            : const Color(0xFF2563EB),
+                            : const Color(0xFFD97706),
                       ),
                     ),
                   ],
